@@ -42,5 +42,12 @@ export const updateJobStatusSchema = z.object({
   driverId: z.string().optional(),
 });
 
+export const jobQuerySchema = z.object({
+  status: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export type CreateJobInput = z.infer<typeof createJobSchema>;
 export type UpdateJobStatusInput = z.infer<typeof updateJobStatusSchema>;
+export type JobQueryInput = z.infer<typeof jobQuerySchema>;
