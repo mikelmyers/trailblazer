@@ -2,17 +2,23 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { TerraMap } from '@/components/map/terra-map';
-import type { MapMarker, RouteGeoJSON } from '@/components/map/terra-map';
+import type { MapMarker, RouteLayer } from '@/components/map/terra-map';
 
 interface ActiveJob {
   id: string;
+  pickupAddress: string;
+  dropoffAddress: string;
   pickupLat: number;
   pickupLng: number;
   dropoffLat: number;
   dropoffLng: number;
+  packageSize: string;
+  urgency: string;
   status: string;
   estimatedRoute: {
-    geometry: RouteGeoJSON;
+    distance: number;
+    duration: number;
+    geometry: { type: 'LineString'; coordinates: [number, number][] };
   } | null;
 }
 
@@ -195,19 +201,25 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <TerraMap
-            center={(() => {
-              // Center on first active job, or first online driver, or default NYC
-              const firstJob = activeJobs[0];
-              const firstDriver = onlineDrivers[0];
-              if (firstJob) return [(firstJob.pickupLng + firstJob.dropoffLng) / 2, (firstJob.pickupLat + firstJob.dropoffLat) / 2] as [number, number];
-              if (firstDriver) return [firstDriver.currentLng, firstDriver.currentLat] as [number, number];
-              return [-73.935242, 40.73061] as [number, number];
-            })()}
             zoom={11}
+            fitBounds={true}
+            showRouteInfo={true}
             markers={[
               ...activeJobs.flatMap((job): MapMarker[] => [
-                { lat: job.pickupLat, lng: job.pickupLng, type: 'pickup', label: `Pickup — ${job.id.slice(0, 8)}` },
-                { lat: job.dropoffLat, lng: job.dropoffLng, type: 'dropoff', label: `Dropoff — ${job.id.slice(0, 8)}` },
+                {
+                  lat: job.pickupLat,
+                  lng: job.pickupLng,
+                  type: 'pickup',
+                  label: `Pickup — ${job.id.slice(0, 8)}`,
+                  detail: `${job.pickupAddress} | ${job.packageSize} | ${job.urgency}`,
+                },
+                {
+                  lat: job.dropoffLat,
+                  lng: job.dropoffLng,
+                  type: 'dropoff',
+                  label: `Dropoff — ${job.id.slice(0, 8)}`,
+                  detail: job.dropoffAddress,
+                },
               ]),
               ...onlineDrivers
                 .filter((d) => d.currentLat && d.currentLng)
@@ -216,9 +228,18 @@ export default function AdminDashboardPage() {
                   lng: d.currentLng,
                   type: 'driver',
                   label: d.userName || d.id.slice(0, 8),
+                  detail: 'Online',
                 })),
             ]}
-            route={activeJobs[0]?.estimatedRoute?.geometry || undefined}
+            routes={activeJobs
+              .filter((job) => job.estimatedRoute?.geometry)
+              .map((job): RouteLayer => ({
+                id: job.id,
+                geometry: job.estimatedRoute!.geometry,
+                status: job.status as RouteLayer['status'],
+                distanceKm: job.estimatedRoute!.distance,
+                durationMin: job.estimatedRoute!.duration,
+              }))}
             className="h-80"
             showDrivers={true}
           />

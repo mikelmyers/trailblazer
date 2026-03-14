@@ -176,8 +176,8 @@ export default function DriverJobDetailPage() {
   const action = STATUS_ACTIONS[job.status];
 
   const mapMarkers = [
-    { lat: job.pickupLat, lng: job.pickupLng, type: 'pickup' as const, label: 'Pickup' },
-    { lat: job.dropoffLat, lng: job.dropoffLng, type: 'dropoff' as const, label: 'Dropoff' },
+    { lat: job.pickupLat, lng: job.pickupLng, type: 'pickup' as const, label: 'Pickup', detail: job.pickupAddress },
+    { lat: job.dropoffLat, lng: job.dropoffLng, type: 'dropoff' as const, label: 'Dropoff', detail: job.dropoffAddress },
   ];
 
   const mapCenter: [number, number] = [
@@ -225,8 +225,24 @@ export default function DriverJobDetailPage() {
         zoom={11}
         markers={mapMarkers}
         route={routeGeoJSON}
+        fitBounds={true}
         className="h-80"
       />
+
+      {/* Terra route estimate */}
+      {job.estimatedRoute && (
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-text-muted text-xs">Distance</span>
+            <span className="font-mono font-medium text-text-primary">{job.estimatedRoute.distance} km</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-text-muted text-xs">ETA</span>
+            <span className="font-mono font-medium text-text-primary">{job.estimatedRoute.duration} min</span>
+          </div>
+          <span className="text-[10px] text-text-muted tracking-wide-label uppercase ml-auto">Route by Terra</span>
+        </div>
+      )}
 
       {/* Status Timeline */}
       <Card>

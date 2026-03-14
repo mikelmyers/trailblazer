@@ -282,6 +282,7 @@ export default function JobDetailPage() {
           zoom={11}
           markers={mapMarkers}
           route={job.estimatedRoute?.geometry || undefined}
+          fitBounds={true}
           className="h-[400px]"
           showDrivers={false}
         />
@@ -289,6 +290,21 @@ export default function JobDetailPage() {
           Navigation powered by Terra
         </div>
       </div>
+
+      {/* Terra route estimate */}
+      {job.estimatedRoute && (
+        <div className="flex items-center gap-4 text-sm px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-text-muted text-xs">Distance</span>
+            <span className="font-mono font-medium text-text-primary">{job.estimatedRoute.distance} km</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-text-muted text-xs">Estimated Time</span>
+            <span className="font-mono font-medium text-text-primary">{job.estimatedRoute.duration} min</span>
+          </div>
+          <span className="text-[10px] text-text-muted tracking-wide-label uppercase ml-auto">Route by Terra</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column: Job info + rating */}

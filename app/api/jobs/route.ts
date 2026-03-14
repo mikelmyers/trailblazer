@@ -148,7 +148,8 @@ export async function POST(request: Request) {
       dropoffLng
     );
 
-    const job = await prisma.$transaction(async (tx) => {
+    const job = await prisma.// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    $transaction(async (tx: any) => {
       const createdJob = await tx.job.create({
         data: {
           shipperId: shipper.id,

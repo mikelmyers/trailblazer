@@ -20,7 +20,7 @@ export const signUpSchema = z.object({
   password: passwordSchema,
   name: z.string().min(2, 'Name must be at least 2 characters'),
   role: z.enum(['DRIVER', 'SHIPPER'], {
-    errorMap: () => ({ message: 'Role must be DRIVER or SHIPPER' }),
+    error: 'Role must be DRIVER or SHIPPER',
   }),
   companyName: z.string().min(2, 'Company name must be at least 2 characters').max(200).optional(),
 }).refine(

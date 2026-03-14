@@ -67,7 +67,7 @@ export async function POST(
     }
 
     // Build driver candidates with full profile context
-    const rawCandidates = availableDrivers.map((d) => ({
+    const rawCandidates = availableDrivers.map((d: typeof availableDrivers[number]) => ({
       id: d.id,
       name: d.user.name || 'Unknown Driver',
       currentLat: d.currentLat!,

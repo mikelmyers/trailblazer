@@ -33,7 +33,7 @@ export async function GET(request: Request) {
       },
     });
 
-    const events = recentJobs.map((job) => {
+    const events = recentJobs.map((job: typeof recentJobs[number]) => {
       let type: string;
       let message: string;
       let timestamp: string;

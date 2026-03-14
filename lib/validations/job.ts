@@ -1,11 +1,11 @@
 import { z } from 'zod';
 
 const packageSizeEnum = z.enum(['ENVELOPE', 'SMALL', 'MEDIUM', 'LARGE', 'PALLET'], {
-  errorMap: () => ({ message: 'Invalid package size' }),
+  error: 'Invalid package size',
 });
 
 const urgencyEnum = z.enum(['STANDARD', 'EXPRESS', 'CRITICAL'], {
-  errorMap: () => ({ message: 'Invalid urgency level' }),
+  error: 'Invalid urgency level',
 });
 
 const jobStatusEnum = z.enum(
@@ -21,17 +21,17 @@ const jobStatusEnum = z.enum(
     'FAILED',
   ],
   {
-    errorMap: () => ({ message: 'Invalid job status' }),
+    error: 'Invalid job status',
   }
 );
 
 export const createJobSchema = z.object({
   pickupAddress: z.string().min(5, 'Pickup address must be at least 5 characters'),
-  pickupLat: z.number({ required_error: 'Pickup latitude is required' }),
-  pickupLng: z.number({ required_error: 'Pickup longitude is required' }),
+  pickupLat: z.number({ error: 'Pickup latitude is required' }),
+  pickupLng: z.number({ error: 'Pickup longitude is required' }),
   dropoffAddress: z.string().min(5, 'Dropoff address must be at least 5 characters'),
-  dropoffLat: z.number({ required_error: 'Dropoff latitude is required' }),
-  dropoffLng: z.number({ required_error: 'Dropoff longitude is required' }),
+  dropoffLat: z.number({ error: 'Dropoff latitude is required' }),
+  dropoffLng: z.number({ error: 'Dropoff longitude is required' }),
   description: z.string().optional(),
   packageSize: packageSizeEnum,
   urgency: urgencyEnum,

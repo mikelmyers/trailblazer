@@ -123,7 +123,8 @@ export async function PATCH(
       updateData.deliveredAt = new Date();
     }
 
-    const updatedJob = await prisma.$transaction(async (tx) => {
+    const updatedJob = await prisma.// eslint-disable-next-line @typescript-eslint/no-explicit-any
+    $transaction(async (tx: any) => {
       const updated = await tx.job.update({
         where: { id: params.id },
         data: updateData,

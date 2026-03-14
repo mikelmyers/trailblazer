@@ -7,7 +7,8 @@ import { prisma } from './db';
 import bcrypt from 'bcryptjs';
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  adapter: PrismaAdapter(prisma) as any,
   session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 }, // 30 days
   pages: {
     signIn: '/auth/signin',
@@ -77,7 +78,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.role = (user as any).role;
-        token.id = user.id;
+        token.id = user.id as string;
       }
       return token;
     },
