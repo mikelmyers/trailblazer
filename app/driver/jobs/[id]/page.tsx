@@ -26,6 +26,11 @@ interface JobDetail {
   matchedAt: string | null;
   pickedUpAt: string | null;
   deliveredAt: string | null;
+  estimatedRoute: {
+    distance: number;
+    duration: number;
+    geometry: { type: 'LineString'; coordinates: [number, number][] };
+  } | null;
   shipper: {
     companyName: string;
     contactName: string | null;
@@ -94,7 +99,7 @@ export default function DriverJobDetailPage() {
         return;
       }
       const data = await res.json();
-      setJob(data);
+      setJob(data.job ?? data);
     } catch {
       setError('Network error. Please check your connection and try again.');
     } finally {
@@ -180,7 +185,7 @@ export default function DriverJobDetailPage() {
     (job.pickupLat + job.dropoffLat) / 2,
   ];
 
-  const routeGeoJSON = {
+  const routeGeoJSON = job.estimatedRoute?.geometry ?? {
     type: 'LineString' as const,
     coordinates: [
       [job.pickupLng, job.pickupLat] as [number, number],

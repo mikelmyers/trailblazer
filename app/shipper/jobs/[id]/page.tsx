@@ -43,7 +43,11 @@ interface JobDetail {
   deliveredAt: string | null;
   cancelledAt: string | null;
   driver: DriverInfo | null;
-  route: RouteGeoJSON | null;
+  estimatedRoute: {
+    distance: number;
+    duration: number;
+    geometry: RouteGeoJSON;
+  } | null;
   rating: number | null;
 }
 
@@ -130,9 +134,10 @@ export default function JobDetailPage() {
         if (res.status === 404) throw new Error('Job not found.');
         throw new Error('Failed to load job details.');
       }
-      const data: JobDetail = await res.json();
-      setJob(data);
-      if (data.rating) {
+      const data = await res.json();
+      const jobData: JobDetail = data.job ?? data;
+      setJob(jobData);
+      if (jobData.rating) {
         setRatingValue(data.rating);
         setRatingSuccess(true);
       }
@@ -276,7 +281,7 @@ export default function JobDetailPage() {
           center={mapCenter}
           zoom={11}
           markers={mapMarkers}
-          route={job.route || undefined}
+          route={job.estimatedRoute?.geometry || undefined}
           className="h-[400px]"
           showDrivers={false}
         />

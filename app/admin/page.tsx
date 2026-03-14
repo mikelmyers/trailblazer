@@ -1,6 +1,27 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { TerraMap } from '@/components/map/terra-map';
+import type { MapMarker, RouteGeoJSON } from '@/components/map/terra-map';
+
+interface ActiveJob {
+  id: string;
+  pickupLat: number;
+  pickupLng: number;
+  dropoffLat: number;
+  dropoffLng: number;
+  status: string;
+  estimatedRoute: {
+    geometry: RouteGeoJSON;
+  } | null;
+}
+
+interface OnlineDriver {
+  id: string;
+  currentLat: number;
+  currentLng: number;
+  userName: string;
+}
 
 interface NetworkStats {
   totalDrivers: number;
@@ -39,15 +60,19 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<NetworkStats>(FALLBACK_STATS);
   const [events, setEvents] = useState<DispatchEvent[]>(FALLBACK_EVENTS);
   const [health, setHealth] = useState<SystemHealth[]>(FALLBACK_HEALTH);
+  const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
+  const [onlineDrivers, setOnlineDrivers] = useState<OnlineDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [statsRes, eventsRes, healthRes] = await Promise.allSettled([
+      const [statsRes, eventsRes, healthRes, jobsRes, driversRes] = await Promise.allSettled([
         fetch('/api/admin/stats'),
         fetch('/api/admin/dispatch-events?limit=20'),
         fetch('/api/admin/health'),
+        fetch('/api/jobs?status=EN_ROUTE_PICKUP,PICKED_UP,EN_ROUTE_DROPOFF,MATCHED&limit=50'),
+        fetch('/api/drivers?availability=true&limit=100'),
       ]);
 
       if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
@@ -58,6 +83,14 @@ export default function AdminDashboardPage() {
       }
       if (healthRes.status === 'fulfilled' && healthRes.value.ok) {
         setHealth(await healthRes.value.json());
+      }
+      if (jobsRes.status === 'fulfilled' && jobsRes.value.ok) {
+        const data = await jobsRes.value.json();
+        setActiveJobs(data.jobs ?? data ?? []);
+      }
+      if (driversRes.status === 'fulfilled' && driversRes.value.ok) {
+        const data = await driversRes.value.json();
+        setOnlineDrivers(data.drivers ?? data ?? []);
       }
 
       setError(null);
@@ -143,7 +176,7 @@ export default function AdminDashboardPage() {
 
       {/* Map + Activity feed */}
       <div className="grid grid-cols-3 gap-4">
-        {/* TerraMap placeholder */}
+        {/* TerraMap — live active dispatches */}
         <div className="col-span-2 rounded-md border border-border bg-white">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
@@ -151,7 +184,7 @@ export default function AdminDashboardPage() {
                 Active Jobs Map
               </div>
               <div className="text-[11px] text-text-muted">
-                TerraMap &mdash; all active dispatches
+                TerraMap &mdash; {activeJobs.length} active dispatch{activeJobs.length !== 1 ? 'es' : ''}, {onlineDrivers.length} driver{onlineDrivers.length !== 1 ? 's' : ''} online
               </div>
             </div>
             <div className="flex items-center gap-1.5">
@@ -161,21 +194,34 @@ export default function AdminDashboardPage() {
               </span>
             </div>
           </div>
-          <div className="flex h-80 items-center justify-center bg-background-3">
-            <div className="text-center">
-              <div className="text-[11px] font-medium uppercase tracking-wide-label text-text-muted mb-2">
-                TerraMap
-              </div>
-              <div className="text-sm text-text-secondary">
-                {stats.activeJobs} active jobs across network
-              </div>
-              <div className="mt-3 inline-flex items-center gap-4 text-[10px] text-text-muted">
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-accent-blue" /> Pickups</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success" /> In Transit</span>
-                <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" /> Delayed</span>
-              </div>
-            </div>
-          </div>
+          <TerraMap
+            center={(() => {
+              // Center on first active job, or first online driver, or default NYC
+              const firstJob = activeJobs[0];
+              const firstDriver = onlineDrivers[0];
+              if (firstJob) return [(firstJob.pickupLng + firstJob.dropoffLng) / 2, (firstJob.pickupLat + firstJob.dropoffLat) / 2] as [number, number];
+              if (firstDriver) return [firstDriver.currentLng, firstDriver.currentLat] as [number, number];
+              return [-73.935242, 40.73061] as [number, number];
+            })()}
+            zoom={11}
+            markers={[
+              ...activeJobs.flatMap((job): MapMarker[] => [
+                { lat: job.pickupLat, lng: job.pickupLng, type: 'pickup', label: `Pickup — ${job.id.slice(0, 8)}` },
+                { lat: job.dropoffLat, lng: job.dropoffLng, type: 'dropoff', label: `Dropoff — ${job.id.slice(0, 8)}` },
+              ]),
+              ...onlineDrivers
+                .filter((d) => d.currentLat && d.currentLng)
+                .map((d): MapMarker => ({
+                  lat: d.currentLat,
+                  lng: d.currentLng,
+                  type: 'driver',
+                  label: d.userName || d.id.slice(0, 8),
+                })),
+            ]}
+            route={activeJobs[0]?.estimatedRoute?.geometry || undefined}
+            className="h-80"
+            showDrivers={true}
+          />
         </div>
 
         {/* Recent dispatch activity feed */}
