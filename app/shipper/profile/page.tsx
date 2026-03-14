@@ -3,45 +3,58 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 
 interface ProfileData {
   companyName: string;
-  contactName: string;
   contactEmail: string;
-  contactPhone: string;
   defaultPackageSize: string;
   defaultUrgency: string;
-  notifyOnMatch: boolean;
-  notifyOnPickup: boolean;
-  notifyOnDelivery: boolean;
+  defaultSpecialInstructions: string;
 }
+
+const packageSizeOptions = [
+  { value: 'ENVELOPE', label: 'Envelope' },
+  { value: 'SMALL', label: 'Small' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'LARGE', label: 'Large' },
+  { value: 'PALLET', label: 'Pallet' },
+];
+
+const urgencyOptions = [
+  { value: 'STANDARD', label: 'Standard' },
+  { value: 'EXPRESS', label: 'Express' },
+  { value: 'CRITICAL', label: 'Critical' },
+];
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileData>({
     companyName: '',
-    contactName: '',
     contactEmail: '',
-    contactPhone: '',
     defaultPackageSize: 'SMALL',
     defaultUrgency: 'STANDARD',
-    notifyOnMatch: true,
-    notifyOnPickup: true,
-    notifyOnDelivery: true,
+    defaultSpecialInstructions: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const fetchProfile = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
     try {
       const res = await fetch('/api/shipper/profile');
-      if (!res.ok) throw new Error('Failed to load profile');
-      const data: ProfileData = await res.json();
-      setProfile(data);
-      setError(null);
+      if (!res.ok) throw new Error('Failed to load profile.');
+      const data = await res.json();
+      setProfile({
+        companyName: data.companyName || '',
+        contactEmail: data.contactEmail || data.email || '',
+        defaultPackageSize: data.defaultPackageSize || 'SMALL',
+        defaultUrgency: data.defaultUrgency || 'STANDARD',
+        defaultSpecialInstructions: data.defaultSpecialInstructions || '',
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
@@ -53,220 +66,181 @@ export default function ProfilePage() {
     fetchProfile();
   }, [fetchProfile]);
 
-  function updateField<K extends keyof ProfileData>(
-    key: K,
-    value: ProfileData[K]
-  ) {
-    setProfile((prev) => ({ ...prev, [key]: value }));
-    setSaved(false);
-  }
-
-  async function handleSave() {
+  const handleSave = async () => {
     setSaving(true);
-    setSaved(false);
     setError(null);
+    setSuccess(false);
 
     try {
       const res = await fetch('/api/shipper/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile),
+        body: JSON.stringify({
+          companyName: profile.companyName,
+          defaultPackageSize: profile.defaultPackageSize,
+          defaultUrgency: profile.defaultUrgency,
+          defaultSpecialInstructions: profile.defaultSpecialInstructions,
+        }),
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to save profile');
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to save profile.');
       }
 
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setSaving(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="max-w-2xl space-y-6">
-        <div className="h-8 w-40 bg-background-3 rounded animate-pulse" />
-        <div className="h-64 bg-white border border-border rounded-lg animate-pulse" />
-        <div className="h-48 bg-white border border-border rounded-lg animate-pulse" />
+        <div className="h-8 w-48 bg-background-3 rounded animate-pulse" />
+        <div className="h-64 bg-background-3 rounded-lg animate-pulse" />
       </div>
     );
   }
 
   return (
     <div className="max-w-2xl space-y-8">
+      {/* Header */}
       <div>
-        <h1 className="text-h2 text-text-primary">Profile</h1>
+        <h1 className="text-h2 text-text-primary font-inter">Profile</h1>
         <p className="text-sm text-text-secondary mt-1">
-          Manage your company information and delivery preferences.
+          Manage your company details and default preferences.
         </p>
       </div>
 
+      {/* Error / Success */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-3">
           <p className="text-sm text-danger">{error}</p>
         </div>
       )}
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-md p-3">
+          <p className="text-sm text-success">Profile saved successfully.</p>
+        </div>
+      )}
 
       {/* Company Info */}
       <Card>
-        <p className="section-label">Company Information</p>
-        <div className="space-y-4 mt-2">
+        <h2 className="text-h3 text-text-primary mb-4">Company Information</h2>
+        <div className="space-y-4">
           <Input
             label="Company Name"
+            placeholder="Enter your company name"
             value={profile.companyName}
-            onChange={(e) => updateField('companyName', e.target.value)}
-            placeholder="Your company name"
+            onChange={(e) =>
+              setProfile((prev) => ({ ...prev, companyName: e.target.value }))
+            }
           />
-          <Input
-            label="Contact Name"
-            value={profile.contactName}
-            onChange={(e) => updateField('contactName', e.target.value)}
-            placeholder="Primary contact"
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Email"
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              Contact Email
+            </label>
+            <input
               type="email"
               value={profile.contactEmail}
-              onChange={(e) => updateField('contactEmail', e.target.value)}
-              placeholder="contact@company.com"
+              readOnly
+              disabled
+              className="w-full px-3 py-2 bg-background-3 border border-border rounded-md text-sm text-text-muted cursor-not-allowed"
             />
-            <Input
-              label="Phone"
-              type="tel"
-              value={profile.contactPhone}
-              onChange={(e) => updateField('contactPhone', e.target.value)}
-              placeholder="+1 (555) 000-0000"
-            />
+            <p className="text-xs text-text-muted mt-1">
+              Email is managed through your authentication settings.
+            </p>
           </div>
         </div>
       </Card>
 
       {/* Default Delivery Preferences */}
       <Card>
-        <p className="section-label">Default Delivery Preferences</p>
-        <p className="text-xs text-text-muted mb-4">
-          These defaults will be pre-filled when you post a new job.
+        <h2 className="text-h3 text-text-primary mb-4">
+          Default Delivery Preferences
+        </h2>
+        <p className="text-sm text-text-secondary mb-4">
+          These defaults will be pre-filled when posting new jobs.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Select
-            label="Default Package Size"
-            value={profile.defaultPackageSize}
-            onChange={(e) => updateField('defaultPackageSize', e.target.value)}
-          >
-            <option value="ENVELOPE">Envelope</option>
-            <option value="SMALL">Small</option>
-            <option value="MEDIUM">Medium</option>
-            <option value="LARGE">Large</option>
-            <option value="PALLET">Pallet</option>
-          </Select>
-          <Select
-            label="Default Urgency"
-            value={profile.defaultUrgency}
-            onChange={(e) => updateField('defaultUrgency', e.target.value)}
-          >
-            <option value="STANDARD">Standard</option>
-            <option value="EXPRESS">Express</option>
-            <option value="CRITICAL">Critical</option>
-          </Select>
-        </div>
-      </Card>
-
-      {/* Notifications */}
-      <Card>
-        <p className="section-label">Notifications</p>
-        <div className="space-y-3 mt-2">
-          {[
-            {
-              key: 'notifyOnMatch' as const,
-              label: 'Driver matched',
-              description: 'Get notified when a driver accepts your job',
-            },
-            {
-              key: 'notifyOnPickup' as const,
-              label: 'Package picked up',
-              description: 'Get notified when the driver picks up the package',
-            },
-            {
-              key: 'notifyOnDelivery' as const,
-              label: 'Package delivered',
-              description: 'Get notified when the delivery is completed',
-            },
-          ].map((item) => (
-            <label
-              key={item.key}
-              className="flex items-start gap-3 cursor-pointer group"
-            >
-              <input
-                type="checkbox"
-                checked={profile[item.key]}
-                onChange={(e) => updateField(item.key, e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-border text-accent focus:ring-accent/20 cursor-pointer"
-              />
-              <div>
-                <span className="text-sm font-medium text-text-primary group-hover:text-accent transition">
-                  {item.label}
-                </span>
-                <span className="block text-xs text-text-muted">
-                  {item.description}
-                </span>
-              </div>
+        <div className="space-y-4">
+          {/* Default Package Size */}
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              Default Package Size
             </label>
-          ))}
+            <select
+              value={profile.defaultPackageSize}
+              onChange={(e) =>
+                setProfile((prev) => ({
+                  ...prev,
+                  defaultPackageSize: e.target.value,
+                }))
+              }
+              className="w-full px-3 py-2 bg-background-3 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition"
+            >
+              {packageSizeOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Default Urgency */}
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              Default Urgency
+            </label>
+            <select
+              value={profile.defaultUrgency}
+              onChange={(e) =>
+                setProfile((prev) => ({
+                  ...prev,
+                  defaultUrgency: e.target.value,
+                }))
+              }
+              className="w-full px-3 py-2 bg-background-3 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition"
+            >
+              {urgencyOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Default Special Instructions */}
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">
+              Default Special Instructions
+            </label>
+            <textarea
+              rows={3}
+              placeholder="Instructions that apply to most of your deliveries..."
+              value={profile.defaultSpecialInstructions}
+              onChange={(e) =>
+                setProfile((prev) => ({
+                  ...prev,
+                  defaultSpecialInstructions: e.target.value,
+                }))
+              }
+              className="w-full px-3 py-2 bg-background-3 border border-border rounded-md text-sm placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition resize-none"
+            />
+          </div>
         </div>
       </Card>
 
       {/* Save */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <span className="flex items-center gap-2">
-              <svg
-                className="animate-spin h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
-              Saving...
-            </span>
-          ) : (
-            'Save Changes'
-          )}
+          {saving ? 'Saving...' : 'Save Changes'}
         </Button>
-        {saved && (
-          <span className="text-sm text-success flex items-center gap-1.5">
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            Changes saved
-          </span>
+        {success && (
+          <span className="text-sm text-success">Saved.</span>
         )}
       </div>
     </div>
