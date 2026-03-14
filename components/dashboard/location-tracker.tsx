@@ -2,6 +2,8 @@
 
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 
+/* ── Types ────────────────────────────────────────────────────────────────── */
+
 interface LocationData {
   lat: number;
   lng: number;
@@ -17,7 +19,11 @@ interface LocationTrackerProps {
 
 type TrackerStatus = 'idle' | 'tracking' | 'error';
 
+/* ── Constants ────────────────────────────────────────────────────────────── */
+
 const SEND_INTERVAL_MS = 30_000;
+
+/* ── Server sync ─────────────────────────────────────────────────────────── */
 
 async function sendLocationToServer(lat: number, lng: number): Promise<void> {
   const res = await fetch('/api/drivers/location', {
@@ -31,6 +37,8 @@ async function sendLocationToServer(lat: number, lng: number): Promise<void> {
   }
 }
 
+/* ── Component ────────────────────────────────────────────────────────────── */
+
 const LocationTracker: React.FC<LocationTrackerProps> = ({
   isActive,
   onLocationUpdate,
@@ -43,6 +51,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({
   const watchIdRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const latestLocationRef = useRef<LocationData | null>(null);
+
+  /* ── Geolocation callbacks ─────────────────────────────────────────────── */
 
   const handlePositionUpdate = useCallback(
     (position: GeolocationPosition) => {
@@ -68,7 +78,9 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({
     setStatus('error');
     switch (error.code) {
       case error.PERMISSION_DENIED:
-        setErrorMessage('Location permission denied. Please enable location access in your browser settings.');
+        setErrorMessage(
+          'Location permission denied. Please enable location access in your browser settings.'
+        );
         break;
       case error.POSITION_UNAVAILABLE:
         setErrorMessage('Location information is unavailable.');
@@ -82,6 +94,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({
     }
   }, []);
 
+  /* ── Send location to server ───────────────────────────────────────────── */
+
   const sendLocation = useCallback(async () => {
     const location = latestLocationRef.current;
     if (!location) return;
@@ -93,6 +107,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({
       // Silently fail on send errors -- will retry on next interval
     }
   }, []);
+
+  /* ── Start/stop tracking based on isActive ─────────────────────────────── */
 
   useEffect(() => {
     if (!isActive) {
@@ -144,6 +160,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({
     };
   }, [isActive, handlePositionUpdate, handlePositionError, sendLocation]);
 
+  /* ── Render nothing when idle and inactive ─────────────────────────────── */
+
   if (!isActive && status === 'idle') {
     return null;
   }
@@ -157,7 +175,7 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-success" />
           </span>
           <span className="text-xs text-text-secondary">
-            Tracking active
+            Location tracking active
             {lastSentAt && (
               <span className="text-text-muted ml-1">
                 &middot; synced {Math.round((Date.now() - lastSentAt) / 1000)}s ago

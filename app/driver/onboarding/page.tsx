@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
-import { AvailabilityToggle } from '@/components/dashboard/availability-toggle';
 
 /* ── Constants ────────────────────────────────────────────────────────────── */
 
@@ -38,24 +37,39 @@ const METRO_AREAS = [
 
 const PLAN_OPTIONS = [
   {
-    tier: 'STANDARD',
+    tier: 'STANDARD' as const,
     name: 'Standard',
-    price: '$9.99/mo',
-    description: 'Access to job feed, real-time dispatch matching, and basic route optimization.',
+    price: '$79',
+    period: '/mo',
+    features: [
+      'Unlimited job matching',
+      'Basic route optimization',
+      'Standard support (email)',
+      'Earnings dashboard',
+      'Job history & analytics',
+    ],
   },
   {
-    tier: 'PRO',
+    tier: 'PRO' as const,
     name: 'Pro',
-    price: '$24.99/mo',
-    description:
-      'Priority dispatch matching, advanced analytics, premium support, and advanced route optimization.',
+    price: '$149',
+    period: '/mo',
+    features: [
+      'Everything in Standard',
+      'Priority job matching',
+      'Advanced route optimization',
+      'Priority support (phone & email)',
+      'Real-time earnings analytics',
+      'Multi-vehicle management',
+      'Dedicated account manager',
+    ],
   },
 ];
 
-/* ── Step Indicator ───────────────────────────────────────────────────────── */
+/* ── Step Indicator (progress dots) ──────────────────────────────────────── */
 
 const StepIndicator: React.FC<{ current: number; total: number }> = ({ current, total }) => (
-  <div className="flex items-center gap-2 mb-8">
+  <div className="flex items-center justify-center gap-2 mb-8">
     {Array.from({ length: total }).map((_, i) => {
       const stepNum = i + 1;
       const isComplete = stepNum < current;
@@ -64,25 +78,17 @@ const StepIndicator: React.FC<{ current: number; total: number }> = ({ current, 
       return (
         <React.Fragment key={i}>
           <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition ${
+            className={`rounded-full transition-all ${
               isComplete
-                ? 'bg-success text-white'
+                ? 'w-3 h-3 bg-success'
                 : isCurrent
-                  ? 'bg-accent text-white'
-                  : 'bg-background-3 text-text-muted border border-border'
+                  ? 'w-4 h-4 bg-accent ring-4 ring-accent/15'
+                  : 'w-3 h-3 bg-border-strong'
             }`}
-          >
-            {isComplete ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            ) : (
-              stepNum
-            )}
-          </div>
+          />
           {i < total - 1 && (
             <div
-              className={`flex-1 h-0.5 ${
+              className={`w-6 h-0.5 ${
                 stepNum < current ? 'bg-success' : 'bg-border'
               }`}
             />
@@ -100,26 +106,25 @@ export default function DriverOnboardingPage() {
   const [step, setStep] = useState(1);
   const [vehicleType, setVehicleType] = useState('CAR');
   const [serviceAreas, setServiceAreas] = useState<string[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState('STANDARD');
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'STANDARD' | 'PRO'>('STANDARD');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsAcceptedAt, setTermsAcceptedAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const canAdvance = (): boolean => {
     switch (step) {
       case 1:
-        return true; // Welcome
+        return true;
       case 2:
         return serviceAreas.length > 0;
       case 3:
-        return true; // Subscription choice
+        return true;
       case 4:
-        return true; // Photo optional
+        return true;
       case 5:
         return termsAccepted;
       case 6:
-        return true; // Ready
+        return true;
       default:
         return false;
     }
@@ -127,48 +132,22 @@ export default function DriverOnboardingPage() {
 
   const handleNext = async () => {
     if (step === TOTAL_STEPS) {
-      // Final step: save and redirect
       setSaving(true);
       try {
-        // Save profile
-        await fetch('/api/drivers/profile', {
+        await fetch('/api/drivers', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ vehicleType, serviceAreas }),
-        });
-
-        // Upload photo if present
-        if (photoFile) {
-          const formData = new FormData();
-          formData.append('photo', photoFile);
-          await fetch('/api/drivers/photo', { method: 'POST', body: formData });
-        }
-
-        // Start subscription checkout
-        const subRes = await fetch('/api/drivers/subscription/checkout', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tier: selectedPlan }),
-        });
-
-        if (subRes.ok) {
-          const data = await subRes.json();
-          if (data.url) {
-            window.location.href = data.url;
-            return;
-          }
-        }
-
-        // Mark onboarding complete
-        await fetch('/api/drivers/onboarding', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ completed: true }),
+          body: JSON.stringify({
+            vehicleType,
+            serviceAreas,
+            subscriptionTier: selectedPlan,
+            termsAcceptedAt,
+            onboardingComplete: true,
+          }),
         });
 
         router.push('/driver');
       } catch {
-        // Silent fail -- still navigate
         router.push('/driver');
       } finally {
         setSaving(false);
@@ -183,23 +162,23 @@ export default function DriverOnboardingPage() {
     if (step > 1) setStep((s) => s - 1);
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setPhotoPreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
   const toggleArea = (area: string) => {
     setServiceAreas((prev) =>
       prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area],
     );
   };
 
+  const handleTermsToggle = (checked: boolean) => {
+    setTermsAccepted(checked);
+    if (checked) {
+      setTermsAcceptedAt(new Date().toISOString());
+    } else {
+      setTermsAcceptedAt(null);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background-2 flex items-start justify-center py-12 px-4">
+    <div className="min-h-screen bg-white flex items-start justify-center py-12 px-4">
       <div className="w-full max-w-xl">
         {/* Header */}
         <div className="text-center mb-6">
@@ -210,7 +189,7 @@ export default function DriverOnboardingPage() {
         <StepIndicator current={step} total={TOTAL_STEPS} />
 
         <Card>
-          {/* Step 1: Welcome */}
+          {/* ── Step 1: Welcome ───────────────────────────────────────────── */}
           {step === 1 && (
             <div className="text-center space-y-4 py-4">
               <svg
@@ -224,22 +203,29 @@ export default function DriverOnboardingPage() {
                 strokeLinejoin="round"
                 className="mx-auto text-accent"
               >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                <line x1="9" y1="9" x2="9.01" y2="9" />
-                <line x1="15" y1="9" x2="15.01" y2="9" />
+                <rect x="1" y="3" width="15" height="13" />
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8" />
+                <circle cx="5.5" cy="18.5" r="2.5" />
+                <circle cx="18.5" cy="18.5" r="2.5" />
               </svg>
               <h2 className="text-h2 font-bold tracking-tight-h2 text-text-primary">
                 Welcome to Trailblazer
               </h2>
               <p className="text-sm text-text-secondary max-w-sm mx-auto">
-                Let us set up your driver account. This will only take a few minutes. You will
-                configure your vehicle, service areas, and subscription.
+                You are signing up as a <span className="font-semibold text-text-primary">Driver</span>.
+                We will walk you through setting up your vehicle, service areas, subscription, and profile
+                in just a few steps.
               </p>
+              <div className="inline-flex items-center gap-2 bg-background-3 rounded-md px-3 py-1.5 border border-border">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-success">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span className="text-xs font-medium text-text-primary">Role: Driver</span>
+              </div>
             </div>
           )}
 
-          {/* Step 2: Vehicle & Service Areas */}
+          {/* ── Step 2: Vehicle Type + Service Areas ─────────────────────── */}
           {step === 2 && (
             <div className="space-y-6">
               <div>
@@ -268,24 +254,30 @@ export default function DriverOnboardingPage() {
               <div>
                 <p className="section-label">Service Areas</p>
                 <p className="text-xs text-text-muted mb-3">
-                  Select at least one metro area.
+                  Select at least one metro area where you are available for deliveries.
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {METRO_AREAS.map((area) => {
                     const isSelected = serviceAreas.includes(area);
                     return (
-                      <button
+                      <label
                         key={area}
-                        type="button"
-                        onClick={() => toggleArea(area)}
-                        className={`px-3 py-1.5 rounded-md text-sm font-medium transition border ${
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-md border cursor-pointer transition ${
                           isSelected
-                            ? 'bg-accent text-white border-accent'
-                            : 'bg-background-3 text-text-secondary border-border hover:border-border-strong'
+                            ? 'border-accent bg-accent/5'
+                            : 'border-border bg-white hover:bg-background-3'
                         }`}
                       >
-                        {area}
-                      </button>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleArea(area)}
+                          className="w-4 h-4 rounded border-border-strong text-accent focus:ring-accent/20 focus:ring-2"
+                        />
+                        <span className={`text-sm ${isSelected ? 'text-text-primary font-medium' : 'text-text-secondary'}`}>
+                          {area}
+                        </span>
+                      </label>
                     );
                   })}
                 </div>
@@ -293,7 +285,7 @@ export default function DriverOnboardingPage() {
             </div>
           )}
 
-          {/* Step 3: Subscription */}
+          {/* ── Step 3: Subscription Tier Selection ──────────────────────── */}
           {step === 3 && (
             <div className="space-y-6">
               <div>
@@ -305,7 +297,7 @@ export default function DriverOnboardingPage() {
                 </p>
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {PLAN_OPTIONS.map((plan) => {
                   const isSelected = selectedPlan === plan.tier;
                   return (
@@ -313,23 +305,47 @@ export default function DriverOnboardingPage() {
                       key={plan.tier}
                       type="button"
                       onClick={() => setSelectedPlan(plan.tier)}
-                      className={`w-full text-left p-4 rounded-lg border-2 transition ${
+                      className={`w-full text-left p-5 rounded-lg border-2 transition ${
                         isSelected
                           ? 'border-accent bg-white'
                           : 'border-border bg-background-3 hover:border-border-strong'
                       }`}
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between mb-3">
                         <div>
                           <p className="text-sm font-semibold text-text-primary">{plan.name}</p>
-                          <p className="text-xs text-text-secondary mt-0.5">{plan.description}</p>
                         </div>
-                        <p className="font-mono text-sm font-bold text-text-primary whitespace-nowrap ml-4">
-                          {plan.price}
-                        </p>
+                        <div className="flex items-baseline gap-0.5">
+                          <span className="font-mono text-lg font-bold text-text-primary">
+                            {plan.price}
+                          </span>
+                          <span className="text-xs text-text-muted">{plan.period}</span>
+                        </div>
                       </div>
+
+                      <ul className="space-y-1.5">
+                        {plan.features.map((feature) => (
+                          <li key={feature} className="flex items-center gap-2">
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className={isSelected ? 'text-success' : 'text-text-muted'}
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            <span className="text-xs text-text-secondary">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+
                       {isSelected && (
-                        <div className="flex items-center gap-1 mt-2">
+                        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-success">
                             <polyline points="20 6 9 17 4 12" />
                           </svg>
@@ -343,7 +359,7 @@ export default function DriverOnboardingPage() {
             </div>
           )}
 
-          {/* Step 4: Profile Photo */}
+          {/* ── Step 4: Profile Photo ────────────────────────────────────── */}
           {step === 4 && (
             <div className="space-y-6">
               <div>
@@ -351,51 +367,54 @@ export default function DriverOnboardingPage() {
                   Profile Photo
                 </h2>
                 <p className="text-sm text-text-secondary">
-                  Add a photo so shippers can identify you. This is optional.
+                  Add a photo so shippers can identify you. This step is optional.
                 </p>
               </div>
 
               <div className="flex flex-col items-center gap-4">
-                <div className="w-24 h-24 rounded-full bg-background-3 border border-border flex items-center justify-center overflow-hidden">
-                  {photoPreview ? (
-                    <img
-                      src={photoPreview}
-                      alt="Profile preview"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <svg
-                      width="40"
-                      height="40"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-text-muted"
-                    >
-                      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
-                  )}
-                </div>
-
-                <label className="inline-flex items-center justify-center rounded-md font-medium transition px-4 py-2 text-sm bg-transparent text-accent border border-border-strong hover:bg-background-3 cursor-pointer">
-                  {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                {/* Styled upload area */}
+                <label className="w-full cursor-pointer">
+                  <div className="border-2 border-dashed border-border rounded-lg p-8 flex flex-col items-center gap-3 hover:border-border-strong hover:bg-background-3 transition">
+                    <div className="w-20 h-20 rounded-full bg-background-3 border border-border flex items-center justify-center">
+                      <svg
+                        width="32"
+                        height="32"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-text-muted"
+                      >
+                        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-accent">Click to upload</p>
+                      <p className="text-xs text-text-muted mt-0.5">JPG or PNG, max 5 MB</p>
+                    </div>
+                  </div>
                   <input
                     type="file"
                     accept="image/*"
                     className="sr-only"
-                    onChange={handlePhotoChange}
+                    onChange={() => {
+                      // Photo upload is a placeholder -- file handling would be
+                      // connected to an actual upload endpoint in production
+                    }}
                   />
                 </label>
-                <p className="text-xs text-text-muted">JPG or PNG, max 5 MB</p>
+
+                <p className="text-xs text-text-muted text-center">
+                  You can always add or change your photo later from your profile settings.
+                </p>
               </div>
             </div>
           )}
 
-          {/* Step 5: Terms */}
+          {/* ── Step 5: Terms of Service ─────────────────────────────────── */}
           {step === 5 && (
             <div className="space-y-6">
               <div>
@@ -407,8 +426,8 @@ export default function DriverOnboardingPage() {
                 </p>
               </div>
 
-              <div className="bg-background-3 rounded-lg p-4 max-h-48 overflow-y-auto">
-                <div className="text-xs text-text-secondary space-y-2">
+              <div className="bg-background-3 rounded-lg p-4 max-h-48 overflow-y-auto border border-border">
+                <div className="text-xs text-text-secondary space-y-2 leading-relaxed">
                   <p>
                     By using the Trailblazer platform as a driver, you agree to the following terms
                     and conditions. You acknowledge that Trailblazer is a dispatch matching platform
@@ -429,6 +448,11 @@ export default function DriverOnboardingPage() {
                     yourself on the Trailblazer platform, including punctuality, safe driving, and
                     courteous communication with shippers and recipients.
                   </p>
+                  <p>
+                    Trailblazer reserves the right to suspend or terminate your account for
+                    violations of these terms, consistently poor ratings, or failure to maintain
+                    an active subscription.
+                  </p>
                 </div>
               </div>
 
@@ -436,20 +460,26 @@ export default function DriverOnboardingPage() {
                 <input
                   type="checkbox"
                   checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded border-border-strong text-accent focus:ring-accent/20"
+                  onChange={(e) => handleTermsToggle(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-border-strong text-accent focus:ring-accent/20 focus:ring-2"
                 />
                 <span className="text-sm text-text-primary">
                   I have read and agree to the Terms of Service and Privacy Policy.
                 </span>
               </label>
+
+              {termsAcceptedAt && (
+                <p className="text-xs text-text-muted font-mono">
+                  Accepted at {new Date(termsAcceptedAt).toLocaleString()}
+                </p>
+              )}
             </div>
           )}
 
-          {/* Step 6: Ready */}
+          {/* ── Step 6: Ready ────────────────────────────────────────────── */}
           {step === 6 && (
             <div className="space-y-6">
-              <div className="text-center">
+              <div className="text-center py-2">
                 <svg
                   width="48"
                   height="48"
@@ -467,28 +497,37 @@ export default function DriverOnboardingPage() {
                 <h2 className="text-h2 font-bold tracking-tight-h2 text-text-primary mb-1">
                   You are all set!
                 </h2>
-                <p className="text-sm text-text-secondary">
-                  Your account is configured. Toggle your availability to start receiving jobs.
+                <p className="text-sm text-text-secondary max-w-sm mx-auto">
+                  Your driver account is ready. Once you reach your dashboard, toggle your
+                  availability to start receiving job matches from the dispatch engine.
                 </p>
               </div>
 
-              <div className="flex justify-center">
-                <AvailabilityToggle />
-              </div>
-
-              <div className="bg-background-3 rounded-lg p-4">
-                <p className="section-label">How It Works</p>
-                <ol className="text-sm text-text-secondary space-y-2 list-decimal list-inside">
-                  <li>Toggle your availability to &ldquo;Available for Dispatch&rdquo;</li>
-                  <li>Our cognitive dispatch engine will match you with nearby jobs</li>
-                  <li>Accept a job and follow the pickup and delivery flow</li>
-                  <li>Complete the delivery and get rated by the shipper</li>
-                </ol>
+              <div className="bg-background-3 rounded-lg p-4 border border-border">
+                <p className="section-label">How Availability Works</p>
+                <ul className="text-sm text-text-secondary space-y-2">
+                  <li className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-success/10 text-success flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</span>
+                    <span>Toggle your availability to &ldquo;Available for Dispatch&rdquo; from the dashboard</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-success/10 text-success flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
+                    <span>The cognitive dispatch engine will match you with nearby jobs in your service areas</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-success/10 text-success flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</span>
+                    <span>Your location will be tracked while available to optimize matching</span>
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <span className="w-5 h-5 rounded-full bg-success/10 text-success flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">4</span>
+                    <span>Toggle off when you are done for the day</span>
+                  </li>
+                </ul>
               </div>
             </div>
           )}
 
-          {/* Navigation Buttons */}
+          {/* ── Navigation Buttons ────────────────────────────────────────── */}
           <div className="flex items-center justify-between mt-8 pt-6 border-t border-border">
             <div>
               {step > 1 && (
@@ -502,14 +541,24 @@ export default function DriverOnboardingPage() {
               onClick={handleNext}
               disabled={!canAdvance() || saving}
             >
-              {saving
-                ? 'Setting up...'
-                : step === TOTAL_STEPS
-                  ? 'Go to Dashboard'
-                  : 'Next'}
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  Setting up...
+                </span>
+              ) : step === TOTAL_STEPS ? (
+                'Go to Dashboard'
+              ) : (
+                'Next'
+              )}
             </Button>
           </div>
         </Card>
+
+        {/* Step counter */}
+        <p className="text-center text-xs text-text-muted mt-4">
+          Step {step} of {TOTAL_STEPS}
+        </p>
       </div>
     </div>
   );
