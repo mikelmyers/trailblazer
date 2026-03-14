@@ -20,10 +20,19 @@ interface PostedJob {
 
 interface DispatchMatchData {
   driverId: string;
+  driverName: string;
   confidence: number;
-  reasoning: string[];
-  estimatedPickupMinutes?: number;
-  driverName?: string;
+  estimatedPickupTime: number;
+  reasoning: string;
+  signals: {
+    proximityScore: number;
+    ratingScore: number;
+    vehicleFitScore: number;
+    tierBoost: number;
+    experienceScore: number;
+    zoneFamiliarityScore: number;
+  };
+  candidatesEvaluated: number;
 }
 
 interface AvailableDriver {
@@ -387,28 +396,31 @@ export default function AdminDispatchPage() {
                           ({dispatchMatch.driverId.slice(0, 8)})
                         </span>
                       </span>
-                      {dispatchMatch.estimatedPickupMinutes != null && (
+                      {dispatchMatch.estimatedPickupTime != null && (
                         <span className="font-mono text-[10px] text-text-muted">
-                          ETA {dispatchMatch.estimatedPickupMinutes} min
+                          ETA {dispatchMatch.estimatedPickupTime} min
                         </span>
                       )}
                     </div>
                     <div className="text-[10px] font-medium uppercase tracking-wide-label text-violet-600 mt-2">
                       Dispatch Reasoning
                     </div>
-                    <ul className="space-y-1">
-                      {dispatchMatch.reasoning.map(
-                        (reason: string, i: number) => (
-                          <li
-                            key={i}
-                            className="flex items-start gap-2 text-[11px] text-text-secondary"
-                          >
-                            <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-violet-400" />
-                            {reason}
-                          </li>
-                        )
-                      )}
-                    </ul>
+                    <p className="text-[11px] text-text-secondary leading-relaxed">
+                      {dispatchMatch.reasoning}
+                    </p>
+                    {dispatchMatch.signals && (
+                      <div className="mt-2 grid grid-cols-3 gap-1">
+                        {Object.entries(dispatchMatch.signals).map(([key, val]) => (
+                          <div key={key} className="text-[10px] text-text-muted">
+                            <span className="font-mono text-violet-700">{((val as number) * 100).toFixed(0)}%</span>{' '}
+                            {key.replace(/([A-Z])/g, ' $1').replace(/Score|Boost/, '').trim()}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="text-[10px] text-text-muted mt-1">
+                      {dispatchMatch.candidatesEvaluated} driver{dispatchMatch.candidatesEvaluated !== 1 ? 's' : ''} evaluated
+                    </div>
                   </div>
                 </div>
               )}

@@ -1,36 +1,27 @@
-interface DriverCandidate {
-  id: string;
-  currentLat: number;
-  currentLng: number;
-  rating: number;
-  vehicleType: string;
-}
+import type { DriverCandidate, JobContext, DispatchMatchResult, RouteResult, AnomalyResult } from './primordia';
 
-interface DispatchMatchResult {
-  driverId: string;
-  confidence: number;
-  estimatedPickupTime: number;
-  reasoning: string;
-}
-
-interface RouteResult {
-  distance: number;
-  duration: number;
-  geometry: {
-    type: string;
-    coordinates: [number, number][];
-  };
-  steps: { instruction: string; distance: number; duration: number }[];
-}
-
-interface AnomalyResult {
-  flagged: boolean;
-  reason?: string;
-  severity?: 'low' | 'medium' | 'high';
-}
+/* ── Helpers ──────────────────────────────────────────────────────────────── */
 
 function randomBetween(min: number, max: number): number {
   return Math.random() * (max - min) + min;
+}
+
+function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 function interpolateCoords(
@@ -50,64 +41,211 @@ function interpolateCoords(
   return coords;
 }
 
-function haversineDistance(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+/* ── Vehicle-Package Compatibility Matrix ─────────────────────────────────── */
+
+const VEHICLE_CAPACITY: Record<string, number> = {
+  BIKE: 1,
+  CAR: 2,
+  VAN: 3,
+  CARGO_VAN: 4,
+  TRUCK: 5,
+};
+
+const PACKAGE_REQUIREMENT: Record<string, number> = {
+  ENVELOPE: 1,
+  SMALL: 1,
+  MEDIUM: 2,
+  LARGE: 3,
+  PALLET: 5,
+};
+
+/**
+ * Scores vehicle-package compatibility.
+ * - 0.0 = vehicle cannot carry this package (e.g., BIKE + PALLET)
+ * - 0.5 = vehicle is oversized for the package (e.g., TRUCK + ENVELOPE)
+ * - 1.0 = vehicle is the right fit
+ */
+function scoreVehicleFit(vehicleType: string, packageSize: string): number {
+  const capacity = VEHICLE_CAPACITY[vehicleType] ?? 2;
+  const required = PACKAGE_REQUIREMENT[packageSize] ?? 2;
+
+  if (capacity < required) return 0; // can't carry it
+  if (capacity === required) return 1.0; // perfect fit
+  if (capacity === required + 1) return 0.85; // slightly oversized, still good
+  return 0.5; // way oversized — wasteful but possible
 }
 
+/* ── Zone Familiarity ─────────────────────────────────────────────────────── */
+
+/** Simple heuristic: does the driver's service area list contain the pickup/dropoff zone? */
+function scoreZoneFamiliarity(serviceAreas: string[], pickupAddress: string, dropoffAddress: string): number {
+  if (serviceAreas.length === 0) return 0.3; // no areas listed = unknown
+  const addressLower = `${pickupAddress} ${dropoffAddress}`.toLowerCase();
+  const matchCount = serviceAreas.filter(area => addressLower.includes(area.toLowerCase())).length;
+  if (matchCount >= 2) return 1.0;
+  if (matchCount === 1) return 0.7;
+  return 0.3;
+}
+
+/* ── Mock Dispatch Match (Cognitive Scoring) ──────────────────────────────── */
+
+/**
+ * Simulates Primordia's cognitive dispatch engine.
+ *
+ * Scoring signals (weighted):
+ *   1. Proximity (Terra ETA)     — 30%  Closest driver by real road time
+ *   2. Driver rating             — 20%  Higher rated = more reliable
+ *   3. Vehicle-package fit       — 20%  Right vehicle for the package
+ *   4. Subscription tier boost   — 10%  PRO drivers get priority
+ *   5. Experience (total jobs)   — 10%  More experienced = better
+ *   6. Zone familiarity          — 10%  Knows the area = faster delivery
+ *
+ * For CRITICAL urgency, proximity weight increases to 45%.
+ * For PALLET/LARGE packages, vehicle fit weight increases to 30%.
+ */
 export async function mockDispatchMatch(
-  pickupLat: number,
-  pickupLng: number,
-  dropoffLat: number,
-  dropoffLng: number,
-  packageSize: string,
-  urgency: string,
-  availableDrivers: DriverCandidate[]
+  job: JobContext,
+  candidates: DriverCandidate[]
 ): Promise<DispatchMatchResult> {
-  if (availableDrivers.length === 0) {
+  if (candidates.length === 0) {
     throw new Error('No available drivers for dispatch matching');
   }
 
-  const scored = availableDrivers
-    .map((driver) => {
-      const distToPickup = haversineDistance(
-        driver.currentLat,
-        driver.currentLng,
-        pickupLat,
-        pickupLng
-      );
-      const ratingScore = driver.rating / 5;
-      const distScore = Math.max(0, 1 - distToPickup / 50);
-      const score = distScore * 0.6 + ratingScore * 0.4;
-      return { driver, score, distToPickup };
-    })
-    .sort((a, b) => b.score - a.score);
+  // Adjust weights based on job characteristics
+  let wProximity = 0.30;
+  let wRating = 0.20;
+  let wVehicle = 0.20;
+  let wTier = 0.10;
+  let wExperience = 0.10;
+  let wZone = 0.10;
 
-  const best = scored[0];
-  const confidence = parseFloat(randomBetween(0.85, 0.98).toFixed(2));
-  const estimatedPickupTime = Math.round(best.distToPickup * 2.5 + randomBetween(3, 8));
+  if (job.urgency === 'CRITICAL') {
+    wProximity = 0.45;
+    wRating = 0.15;
+    wVehicle = 0.15;
+    wTier = 0.10;
+    wExperience = 0.08;
+    wZone = 0.07;
+  }
+
+  if (job.packageSize === 'PALLET' || job.packageSize === 'LARGE') {
+    wVehicle = 0.30;
+    wProximity = 0.25;
+    wRating = 0.15;
+    wTier = 0.10;
+    wExperience = 0.10;
+    wZone = 0.10;
+  }
+
+  // Find max values for normalization
+  const maxEta = Math.max(...candidates.map(c => c.etaToPickupMin), 1);
+  const maxJobs = Math.max(...candidates.map(c => c.totalJobs), 1);
+
+  const scored = candidates.map((driver) => {
+    // 1. Proximity: lower ETA = better (inverted, normalized)
+    const proximityScore = Math.max(0, 1 - driver.etaToPickupMin / maxEta);
+
+    // 2. Rating: 0-5 normalized to 0-1
+    const ratingScore = driver.rating / 5;
+
+    // 3. Vehicle-package compatibility
+    const vehicleFitScore = scoreVehicleFit(driver.vehicleType, job.packageSize);
+
+    // 4. Tier boost: PRO drivers get priority weighting
+    const tierBoost = driver.subscriptionTier === 'PRO' ? 1.0 : 0.4;
+
+    // 5. Experience: more completed jobs = more reliable
+    const experienceScore = Math.min(1, driver.totalJobs / Math.max(maxJobs, 50));
+
+    // 6. Zone familiarity
+    const zoneFamiliarityScore = scoreZoneFamiliarity(
+      driver.serviceAreas,
+      job.pickupAddress,
+      job.dropoffAddress
+    );
+
+    // Weighted composite score
+    const totalScore =
+      proximityScore * wProximity +
+      ratingScore * wRating +
+      vehicleFitScore * wVehicle +
+      tierBoost * wTier +
+      experienceScore * wExperience +
+      zoneFamiliarityScore * wZone;
+
+    return {
+      driver,
+      totalScore,
+      signals: {
+        proximityScore: Math.round(proximityScore * 100) / 100,
+        ratingScore: Math.round(ratingScore * 100) / 100,
+        vehicleFitScore: Math.round(vehicleFitScore * 100) / 100,
+        tierBoost: Math.round(tierBoost * 100) / 100,
+        experienceScore: Math.round(experienceScore * 100) / 100,
+        zoneFamiliarityScore: Math.round(zoneFamiliarityScore * 100) / 100,
+      },
+    };
+  });
+
+  // Filter out drivers whose vehicle can't carry the package
+  const eligible = scored.filter(s => s.signals.vehicleFitScore > 0);
+  const pool = eligible.length > 0 ? eligible : scored; // fallback if none eligible
+
+  pool.sort((a, b) => b.totalScore - a.totalScore);
+
+  const best = pool[0];
+  const secondBest = pool[1];
+
+  // Confidence based on gap between best and second-best
+  let confidence: number;
+  if (!secondBest) {
+    confidence = 0.92;
+  } else {
+    const gap = best.totalScore - secondBest.totalScore;
+    confidence = Math.min(0.98, 0.80 + gap * 2);
+  }
+  confidence = Math.round(confidence * 100) / 100;
+
+  // Build human-readable reasoning
+  const reasons: string[] = [];
+
+  if (best.signals.proximityScore > 0.7) {
+    reasons.push(`closest to pickup (${best.driver.etaToPickupMin}min ETA via Terra routing)`);
+  } else {
+    reasons.push(`${best.driver.etaToPickupMin}min ETA to pickup`);
+  }
+
+  reasons.push(`${best.driver.rating}/5 driver rating`);
+
+  if (best.signals.vehicleFitScore === 1.0) {
+    reasons.push(`${best.driver.vehicleType} is ideal for ${job.packageSize} package`);
+  } else if (best.signals.vehicleFitScore >= 0.85) {
+    reasons.push(`${best.driver.vehicleType} suitable for ${job.packageSize} package`);
+  }
+
+  if (best.driver.subscriptionTier === 'PRO') {
+    reasons.push('PRO tier driver (priority weighting)');
+  }
+
+  if (best.signals.experienceScore > 0.5) {
+    reasons.push(`${best.driver.totalJobs} completed deliveries`);
+  }
+
+  if (best.signals.zoneFamiliarityScore >= 0.7) {
+    reasons.push('familiar with delivery zone');
+  }
 
   return {
     driverId: best.driver.id,
+    driverName: best.driver.name,
     confidence,
-    estimatedPickupTime,
-    reasoning: `Selected driver ${best.driver.id} (${best.driver.vehicleType}) based on proximity (${best.distToPickup.toFixed(1)}km), rating (${best.driver.rating}), and vehicle suitability for ${packageSize} package with ${urgency} urgency.`,
+    estimatedPickupTime: best.driver.etaToPickupMin,
+    reasoning: `Selected ${best.driver.name} (${best.driver.vehicleType}, ${best.driver.subscriptionTier}): ${reasons.join(', ')}. Composite score: ${(best.totalScore * 100).toFixed(1)}% across ${candidates.length} candidate${candidates.length > 1 ? 's' : ''}.`,
+    signals: best.signals,
   };
 }
+
+/* ── Mock Route Optimization (Terra) ──────────────────────────────────────── */
 
 export async function mockOptimizeRoute(
   startLat: number,
@@ -156,10 +294,12 @@ export async function mockOptimizeRoute(
   };
 }
 
+/* ── Mock Anomaly Detection ───────────────────────────────────────────────── */
+
 export async function mockFlagAnomaly(
   jobId: string,
   eventType: string,
-  eventData: Record<string, unknown>
+  _eventData: Record<string, unknown>
 ): Promise<AnomalyResult> {
   const flagChance = Math.random();
 
@@ -179,7 +319,5 @@ export async function mockFlagAnomaly(
     };
   }
 
-  return {
-    flagged: false,
-  };
+  return { flagged: false };
 }
