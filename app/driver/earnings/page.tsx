@@ -14,45 +14,35 @@ interface DeliveredJob {
   createdAt: string;
 }
 
+/* ── Helpers ──────────────────────────────────────────────────────────────── */
+
+function isThisWeek(date: Date): boolean {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - dayOfWeek);
+  startOfWeek.setHours(0, 0, 0, 0);
+  return date >= startOfWeek;
+}
+
+function isThisMonth(date: Date): boolean {
+  const now = new Date();
+  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+}
+
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
 export default function DriverEarningsPage() {
-  const [thisWeek, setThisWeek] = useState(0);
-  const [thisMonth, setThisMonth] = useState(0);
-  const [allTime, setAllTime] = useState(0);
   const [jobs, setJobs] = useState<DeliveredJob[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchDeliveredJobs() {
       try {
         const res = await fetch('/api/jobs?status=DELIVERED');
         if (res.ok) {
           const data = await res.json();
-          const delivered: DeliveredJob[] = data.jobs ?? data ?? [];
-          setJobs(delivered);
-
-          // Compute earnings estimates from delivered jobs
-          const now = new Date();
-          const startOfWeek = new Date(now);
-          startOfWeek.setDate(now.getDate() - now.getDay());
-          startOfWeek.setHours(0, 0, 0, 0);
-
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-          let weekTotal = 0;
-          let monthTotal = 0;
-          const perJobEstimate = 25; // Estimate per delivery
-
-          delivered.forEach((job) => {
-            const deliveredDate = new Date(job.deliveredAt || job.createdAt);
-            if (deliveredDate >= startOfWeek) weekTotal += perJobEstimate;
-            if (deliveredDate >= startOfMonth) monthTotal += perJobEstimate;
-          });
-
-          setThisWeek(weekTotal);
-          setThisMonth(monthTotal);
-          setAllTime(delivered.length * perJobEstimate);
+          setJobs(data.jobs ?? data ?? []);
         }
       } catch {
         // Silent fail
@@ -61,8 +51,14 @@ export default function DriverEarningsPage() {
       }
     }
 
-    fetchData();
+    fetchDeliveredJobs();
   }, []);
+
+  /* ── Compute earnings summary ──────────────────────────────────────────── */
+
+  const thisWeekCount = jobs.filter((j) => isThisWeek(new Date(j.deliveredAt))).length;
+  const thisMonthCount = jobs.filter((j) => isThisMonth(new Date(j.deliveredAt))).length;
+  const allTimeCount = jobs.length;
 
   if (loading) {
     return (
@@ -76,22 +72,22 @@ export default function DriverEarningsPage() {
     <div className="space-y-8">
       <h1 className="text-h2 font-bold tracking-tight-h2 text-text-primary">Earnings</h1>
 
-      {/* Stats Cards */}
+      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatsCard
           label="This Week"
-          value={`$${thisWeek.toFixed(2)}`}
-          description="Mon - Sun"
+          value={thisWeekCount}
+          description="Deliveries completed"
         />
         <StatsCard
           label="This Month"
-          value={`$${thisMonth.toFixed(2)}`}
+          value={thisMonthCount}
           description={new Date().toLocaleString('default', { month: 'long' })}
         />
         <StatsCard
           label="All Time"
-          value={`$${allTime.toFixed(2)}`}
-          description="Total earned"
+          value={allTimeCount}
+          description="Total deliveries"
         />
       </div>
 
@@ -114,7 +110,7 @@ export default function DriverEarningsPage() {
         </svg>
         <p className="text-sm text-text-secondary">
           Payments are handled directly between you and the shipper. Trailblazer does not process
-          delivery payments. Earnings shown here are estimates based on completed jobs.
+          delivery payments. Earnings shown here reflect completed delivery counts.
         </p>
       </div>
 
@@ -124,7 +120,7 @@ export default function DriverEarningsPage() {
 
         {jobs.length === 0 ? (
           <p className="text-sm text-text-secondary text-center py-8">
-            No delivered jobs yet.
+            No completed deliveries yet.
           </p>
         ) : (
           <div className="overflow-x-auto -mx-6">
@@ -152,7 +148,7 @@ export default function DriverEarningsPage() {
                     className="border-b border-border last:border-b-0 hover:bg-background-3 transition"
                   >
                     <td className="py-3 px-6 font-mono text-xs text-text-muted whitespace-nowrap">
-                      {new Date(job.deliveredAt || job.createdAt).toLocaleDateString()}
+                      {new Date(job.deliveredAt).toLocaleDateString()}
                     </td>
                     <td className="py-3 px-6 font-mono text-xs text-text-muted whitespace-nowrap">
                       {job.id}

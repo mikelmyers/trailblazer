@@ -182,7 +182,11 @@ export default function DriverProfilePage() {
             return (
               <label
                 key={area}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-md border border-border hover:bg-background-3 transition cursor-pointer select-none"
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-md border cursor-pointer transition ${
+                  isSelected
+                    ? 'border-accent bg-accent/5'
+                    : 'border-border bg-white hover:bg-background-3'
+                }`}
               >
                 <input
                   type="checkbox"
