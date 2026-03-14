@@ -8,73 +8,88 @@ import { Button } from '@/components/ui/button';
 /* ── Types ────────────────────────────────────────────────────────────────── */
 
 interface SubscriptionInfo {
-  tier: 'STANDARD' | 'PRO';
-  status: string | null;
-  stripeCustomerId: string | null;
+  plan: 'STANDARD' | 'PRO' | null;
+  status: 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'TRIALING' | null;
+  currentPeriodEnd: string | null;
 }
 
-/* ── Plan data ────────────────────────────────────────────────────────────── */
-
-interface PlanFeature {
-  text: string;
-  included: boolean;
-}
+/* ── Constants ────────────────────────────────────────────────────────────── */
 
 interface PlanDef {
+  id: 'STANDARD' | 'PRO';
   name: string;
-  tier: 'STANDARD' | 'PRO';
   price: string;
-  description: string;
-  features: PlanFeature[];
+  period: string;
+  features: string[];
 }
 
 const PLANS: PlanDef[] = [
   {
+    id: 'STANDARD',
     name: 'Standard',
-    tier: 'STANDARD',
-    price: '$9.99/mo',
-    description: 'Everything you need to start delivering.',
+    price: '$79',
+    period: '/mo',
     features: [
-      { text: 'Access to job feed', included: true },
-      { text: 'Real-time dispatch matching', included: true },
-      { text: 'Basic route optimization', included: true },
-      { text: 'Standard support', included: true },
-      { text: 'Priority dispatch matching', included: false },
-      { text: 'Advanced analytics', included: false },
-      { text: 'Premium support', included: false },
+      'Unlimited job matching',
+      'Basic route optimization',
+      'Standard support (email)',
+      'Earnings dashboard',
+      'Job history & analytics',
     ],
   },
   {
+    id: 'PRO',
     name: 'Pro',
-    tier: 'PRO',
-    price: '$24.99/mo',
-    description: 'Priority matching and advanced features for serious drivers.',
+    price: '$149',
+    period: '/mo',
     features: [
-      { text: 'Access to job feed', included: true },
-      { text: 'Real-time dispatch matching', included: true },
-      { text: 'Advanced route optimization', included: true },
-      { text: 'Standard support', included: true },
-      { text: 'Priority dispatch matching', included: true },
-      { text: 'Advanced analytics', included: true },
-      { text: 'Premium support', included: true },
+      'Everything in Standard',
+      'Priority job matching',
+      'Advanced route optimization',
+      'Priority support (phone & email)',
+      'Real-time earnings analytics',
+      'Multi-vehicle management',
+      'Dedicated account manager',
     ],
   },
 ];
 
+const STATUS_BADGE_VARIANT: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'default'> = {
+  ACTIVE: 'success',
+  PAST_DUE: 'warning',
+  CANCELLED: 'danger',
+  TRIALING: 'info',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  ACTIVE: 'Active',
+  PAST_DUE: 'Past Due',
+  CANCELLED: 'Cancelled',
+  TRIALING: 'Trial',
+};
+
 /* ── Page ─────────────────────────────────────────────────────────────────── */
 
 export default function DriverSubscriptionPage() {
-  const [sub, setSub] = useState<SubscriptionInfo | null>(null);
+  const [subscription, setSubscription] = useState<SubscriptionInfo>({
+    plan: null,
+    status: null,
+    currentPeriodEnd: null,
+  });
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchSub() {
+    async function fetchSubscription() {
       try {
-        const res = await fetch('/api/drivers/subscription');
+        const res = await fetch('/api/drivers/me');
         if (res.ok) {
           const data = await res.json();
-          setSub(data);
+          setSubscription({
+            plan: data.subscriptionTier ?? data.plan ?? null,
+            status: data.subscriptionStatus ?? data.status ?? null,
+            currentPeriodEnd: data.currentPeriodEnd ?? null,
+          });
         }
       } catch {
         // Silent fail
@@ -83,16 +98,16 @@ export default function DriverSubscriptionPage() {
       }
     }
 
-    fetchSub();
+    fetchSubscription();
   }, []);
 
-  const handlePlanAction = async (targetTier: 'STANDARD' | 'PRO') => {
-    setActionLoading(true);
+  const handleUpgrade = async (planId: string) => {
+    setActionLoading(planId);
     try {
-      const res = await fetch('/api/drivers/subscription/checkout', {
+      const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier: targetTier }),
+        body: JSON.stringify({ plan: planId }),
       });
 
       if (res.ok) {
@@ -104,15 +119,16 @@ export default function DriverSubscriptionPage() {
     } catch {
       // Silent fail
     } finally {
-      setActionLoading(false);
+      setActionLoading(null);
     }
   };
 
   const handleManageBilling = async () => {
-    setActionLoading(true);
+    setActionLoading('billing');
     try {
-      const res = await fetch('/api/drivers/subscription/portal', {
+      const res = await fetch('/api/stripe/portal', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (res.ok) {
@@ -124,7 +140,7 @@ export default function DriverSubscriptionPage() {
     } catch {
       // Silent fail
     } finally {
-      setActionLoading(false);
+      setActionLoading(null);
     }
   };
 
@@ -136,140 +152,116 @@ export default function DriverSubscriptionPage() {
     );
   }
 
-  const currentTier = sub?.tier ?? 'STANDARD';
-
-  const statusBadgeVariant =
-    sub?.status === 'active'
-      ? 'success'
-      : sub?.status === 'trialing'
-        ? 'info'
-        : sub?.status === 'past_due'
-          ? 'danger'
-          : ('default' as const);
-
   return (
     <div className="space-y-8 max-w-3xl">
       <h1 className="text-h2 font-bold tracking-tight-h2 text-text-primary">Subscription</h1>
 
-      {/* Current Plan */}
+      {/* Current Plan Display */}
       <Card>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <p className="section-label">Current Plan</p>
             <div className="flex items-center gap-3">
               <p className="text-h3 font-semibold text-text-primary">
-                {currentTier === 'PRO' ? 'Pro' : 'Standard'}
+                {subscription.plan
+                  ? PLANS.find((p) => p.id === subscription.plan)?.name ?? subscription.plan
+                  : 'No active plan'}
               </p>
-              {sub?.status && (
-                <Badge variant={statusBadgeVariant}>
-                  {sub.status}
+              {subscription.status && (
+                <Badge variant={STATUS_BADGE_VARIANT[subscription.status] ?? 'default'}>
+                  {STATUS_LABEL[subscription.status] ?? subscription.status}
                 </Badge>
               )}
             </div>
+            {subscription.currentPeriodEnd && (
+              <p className="text-xs text-text-muted font-mono mt-1">
+                Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+              </p>
+            )}
           </div>
-          {sub?.stripeCustomerId && (
+          {subscription.plan && (
             <Button
               variant="secondary"
               onClick={handleManageBilling}
-              disabled={actionLoading}
+              disabled={actionLoading === 'billing'}
             >
-              Manage Billing
+              {actionLoading === 'billing' ? 'Loading...' : 'Manage Billing'}
             </Button>
           )}
         </div>
       </Card>
 
-      {/* Plan Comparison */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Plan Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {PLANS.map((plan) => {
-          const isCurrent = plan.tier === currentTier;
-          const isUpgrade = plan.tier === 'PRO' && currentTier === 'STANDARD';
-          const isDowngrade = plan.tier === 'STANDARD' && currentTier === 'PRO';
-
+          const isCurrent = subscription.plan === plan.id;
           return (
-            <Card
-              key={plan.tier}
-              className={`flex flex-col ${
-                isCurrent ? 'border-accent border-2' : ''
+            <div
+              key={plan.id}
+              className={`bg-white border rounded-lg p-6 shadow-card transition-shadow hover:shadow-card-hover flex flex-col ${
+                isCurrent ? 'border-accent ring-2 ring-accent/10' : 'border-border'
               }`}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div>
+              {/* Plan header */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
                   <h3 className="text-h3 font-semibold text-text-primary">{plan.name}</h3>
-                  <p className="text-sm text-text-secondary mt-0.5">{plan.description}</p>
+                  {isCurrent && <Badge variant="success">Current</Badge>}
                 </div>
-                {isCurrent && (
-                  <Badge variant="default">Current</Badge>
-                )}
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-display font-bold text-text-primary font-mono">
+                    {plan.price}
+                  </span>
+                  <span className="text-sm text-text-muted">{plan.period}</span>
+                </div>
               </div>
 
-              <p className="text-h2 font-bold tracking-tight-h2 text-text-primary mb-4 font-mono">
-                {plan.price}
-              </p>
-
-              <ul className="space-y-2.5 flex-1 mb-6">
+              {/* Features list */}
+              <ul className="space-y-2.5 mb-6 flex-1">
                 {plan.features.map((feature) => (
-                  <li key={feature.text} className="flex items-start gap-2.5">
-                    {feature.included ? (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="flex-shrink-0 mt-0.5 text-success"
-                      >
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    ) : (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="flex-shrink-0 mt-0.5 text-text-muted"
-                      >
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    )}
-                    <span
-                      className={`text-sm ${
-                        feature.included ? 'text-text-primary' : 'text-text-muted'
-                      }`}
+                  <li key={feature} className="flex items-start gap-2.5">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="flex-shrink-0 text-success mt-0.5"
                     >
-                      {feature.text}
-                    </span>
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span className="text-sm text-text-secondary">{feature}</span>
                   </li>
                 ))}
               </ul>
 
+              {/* Action */}
               {isCurrent ? (
-                <Button variant="secondary" disabled className="w-full">
+                <Button variant="secondary" className="w-full" disabled>
                   Current Plan
                 </Button>
               ) : (
                 <Button
-                  variant={isUpgrade ? 'primary' : 'secondary'}
-                  onClick={() => handlePlanAction(plan.tier)}
-                  disabled={actionLoading}
                   className="w-full"
+                  onClick={() => handleUpgrade(plan.id)}
+                  disabled={actionLoading === plan.id}
                 >
-                  {actionLoading
-                    ? 'Redirecting...'
-                    : isUpgrade
-                      ? 'Upgrade to Pro'
-                      : 'Downgrade to Standard'}
+                  {actionLoading === plan.id ? (
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      Processing...
+                    </span>
+                  ) : subscription.plan ? (
+                    `Switch to ${plan.name}`
+                  ) : (
+                    `Get Started with ${plan.name}`
+                  )}
                 </Button>
               )}
-            </Card>
+            </div>
           );
         })}
       </div>
