@@ -66,14 +66,15 @@ const driverPlans: Plan[] = [
 const shipperPlans: Plan[] = [
   {
     name: "Shipper Casual",
-    price: 29,
-    interval: "/mo",
-    description: "For individuals who need the occasional delivery without a big commitment.",
+    price: 0,
+    interval: "",
+    description: "Pay only when you ship. No subscription, no commitment.",
+    badge: "No credit card required",
     features: [
       "Up to 5 jobs per month",
       "8% convenience fee per job",
+      "No monthly subscription",
       "Standard dispatch matching",
-      "Email notifications",
       "Delivery confirmation and proof",
     ],
   },
@@ -138,7 +139,7 @@ const faqs = [
   {
     question: "What is the Shipper Casual plan for?",
     answer:
-      "Casual is for individuals or small businesses who only need a few deliveries per month — like getting construction materials delivered or moving something without a trailer. You pay a low $29/month subscription and an 8% convenience fee on each job. No long-term commitment needed.",
+      "Casual is for individuals who only need a few deliveries per month — like getting construction materials delivered or moving something without a trailer. There is no monthly subscription; you just pay an 8% convenience fee on each job. Sign up and post when you need to.",
   },
   {
     question: "What happens if I exceed the job limit on my Shipper plan?",

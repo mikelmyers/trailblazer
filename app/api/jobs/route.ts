@@ -119,11 +119,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Shipper profile not found.' }, { status: 404 });
     }
 
-    if (!shipper.subscriptionStatus || shipper.subscriptionStatus !== 'active') {
-      return NextResponse.json(
-        { error: 'An active subscription is required to create jobs.' },
-        { status: 403 }
-      );
+    // CASUAL tier is pay-per-use (no subscription required).
+    // Starter and Growth require an active subscription.
+    if (shipper.subscriptionTier !== 'CASUAL') {
+      if (!shipper.subscriptionStatus || shipper.subscriptionStatus !== 'active') {
+        return NextResponse.json(
+          { error: 'An active subscription is required to create jobs.' },
+          { status: 403 }
+        );
+      }
     }
 
     const jobLimit = SHIPPER_JOB_LIMITS[shipper.subscriptionTier] ?? null;

@@ -156,7 +156,7 @@ model Shipper {
   companyName        String
   stripeCustomerId   String?    @unique
   subscriptionId     String?    @unique
-  subscriptionTier   ShipperTier @default(STARTER)
+  subscriptionTier   ShipperTier @default(CASUAL)
   subscriptionStatus String?
   monthlyJobCount    Int        @default(0)
   jobs               Job[]
