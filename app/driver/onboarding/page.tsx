@@ -137,7 +137,7 @@ export default function DriverOnboardingPage() {
       case 5:
         return termsAccepted;
       case 6:
-        return connectStatus === 'complete' || selectedPlan === 'FREE';
+        return connectStatus === 'complete';
       case 7:
         return true;
       default:
@@ -454,9 +454,9 @@ export default function DriverOnboardingPage() {
                     all packages with reasonable care and deliver them in a timely manner.
                   </p>
                   <p>
-                    Payments for deliveries are handled directly between you and the shipper.
-                    Trailblazer charges a monthly subscription fee for access to the platform, which
-                    is billed through Stripe.
+                    Shippers pay the platform for each delivery. Trailblazer deducts a platform fee
+                    based on your subscription tier (Free: 12%, Standard: 6%, Pro: 0%) and transfers
+                    the remaining payout to your connected bank account via Stripe.
                   </p>
                   <p>
                     You agree to maintain a professional standard of conduct while representing
@@ -560,11 +560,9 @@ export default function DriverOnboardingPage() {
                     )}
                   </Button>
 
-                  {selectedPlan === 'FREE' && (
-                    <p className="text-xs text-text-muted text-center">
-                      You can skip this step on the Free plan and set up payouts later from your profile.
-                    </p>
-                  )}
+                  <p className="text-xs text-text-muted text-center">
+                    Payout setup is required to receive delivery payments. You can update your bank details later from your profile.
+                  </p>
                 </div>
               )}
             </div>

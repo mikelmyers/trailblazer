@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { updateJobStatusSchema } from '@/lib/validations/job';
 import { flagAnomaly } from '@/lib/primordia';
-import { captureJobPayment, cancelJobPayment, transferToDriver } from '@/lib/stripe';
+import { captureJobPayment, cancelJobPayment, transferToDriver, refundJobPayment, reverseTransfer } from '@/lib/stripe';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   POSTED: ['MATCHING', 'CANCELLED'],
@@ -14,9 +14,10 @@ const VALID_TRANSITIONS: Record<string, string[]> = {
   EN_ROUTE_PICKUP: ['PICKED_UP', 'CANCELLED', 'FAILED'],
   PICKED_UP: ['EN_ROUTE_DROPOFF', 'FAILED'],
   EN_ROUTE_DROPOFF: ['DELIVERED', 'FAILED'],
-  DELIVERED: [],
+  DELIVERED: ['REFUNDED'],
   CANCELLED: [],
   FAILED: [],
+  REFUNDED: [],
 };
 
 export async function GET(
@@ -229,6 +230,34 @@ export async function PATCH(
           });
         } catch (cancelError) {
           console.error('Payment cancellation failed:', cancelError);
+        }
+      }
+
+      // Refund payment after delivery (admin-only dispute resolution)
+      if (newStatus === 'REFUNDED' && job.paymentIntentId && (job.paymentStatus === 'captured' || job.paymentStatus === 'transferred')) {
+        if (!isAdmin) {
+          throw new Error('Only admins can issue refunds.');
+        }
+        try {
+          // Reverse driver transfer first if already transferred
+          if (job.paymentStatus === 'transferred' && job.transferId) {
+            await reverseTransfer(job.transferId);
+          }
+
+          // Refund the shipper
+          await refundJobPayment(job.paymentIntentId);
+
+          await tx.job.update({
+            where: { id: job.id },
+            data: { paymentStatus: 'refunded' },
+          });
+
+          await tx.payment.updateMany({
+            where: { jobId: job.id },
+            data: { status: 'refunded' },
+          });
+        } catch (refundError) {
+          console.error('Refund failed:', refundError);
         }
       }
 

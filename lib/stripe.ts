@@ -114,6 +114,25 @@ export async function cancelJobPayment(paymentIntentId: string) {
   return getStripe().paymentIntents.cancel(paymentIntentId);
 }
 
+export async function refundJobPayment(
+  paymentIntentId: string,
+  amountCents?: number,
+) {
+  return getStripe().refunds.create({
+    payment_intent: paymentIntentId,
+    ...(amountCents ? { amount: amountCents } : {}),
+  });
+}
+
+export async function reverseTransfer(
+  transferId: string,
+  amountCents?: number,
+) {
+  return getStripe().transfers.createReversal(transferId, {
+    ...(amountCents ? { amount: amountCents } : {}),
+  });
+}
+
 export async function transferToDriver(
   amountCents: number,
   connectAccountId: string,

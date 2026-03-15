@@ -16,6 +16,7 @@ interface DriverProfile {
   serviceAreas: string[];
   rating: number;
   totalJobs: number;
+  stripeConnectOnboarded: boolean;
 }
 
 /* ── Constants ────────────────────────────────────────────────────────────── */
@@ -54,6 +55,7 @@ export default function DriverProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [connectLoading, setConnectLoading] = useState(false);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -201,6 +203,47 @@ export default function DriverProfilePage() {
             );
           })}
         </div>
+      </Card>
+
+      {/* Stripe Connect Payout Setup */}
+      <Card>
+        <p className="section-label">Payout Account</p>
+        {profile?.stripeConnectOnboarded ? (
+          <div className="flex items-center gap-3 p-3 bg-success/5 border border-success/20 rounded-lg">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-success flex-shrink-0">
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span className="text-sm font-medium text-success">Payout account connected</span>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-text-secondary">
+              Connect your bank account to receive delivery payouts. You must complete this step to be eligible for dispatch.
+            </p>
+            <Button
+              onClick={async () => {
+                setConnectLoading(true);
+                try {
+                  const res = await fetch('/api/stripe/connect/onboard', { method: 'POST' });
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.url) {
+                      window.location.href = data.url;
+                    }
+                  }
+                } catch {
+                  // Silent fail
+                } finally {
+                  setConnectLoading(false);
+                }
+              }}
+              disabled={connectLoading}
+            >
+              {connectLoading ? 'Connecting...' : 'Connect Bank Account'}
+            </Button>
+          </div>
+        )}
       </Card>
 
       {/* Save */}

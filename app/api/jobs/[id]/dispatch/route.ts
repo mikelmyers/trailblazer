@@ -6,6 +6,10 @@ import { prisma } from '@/lib/db';
 import { dispatchMatch, computeDriverPickupRoutes } from '@/lib/primordia';
 import type { JobContext } from '@/lib/primordia';
 import { calculatePlatformFee } from '@/lib/pricing';
+import { createJobPaymentIntent, cancelJobPayment } from '@/lib/stripe';
+
+/** Stripe manual-capture auth expires after 7 days */
+const AUTH_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function POST(
   request: Request,
@@ -39,6 +43,50 @@ export async function POST(
       );
     }
 
+    // Check for stale payment authorization (>7 days) and re-authorize
+    if (job.paymentIntentId && job.paymentStatus === 'authorized' && job.priceCents) {
+      const jobAge = Date.now() - new Date(job.createdAt).getTime();
+      if (jobAge > AUTH_EXPIRY_MS) {
+        const shipper = await prisma.shipper.findUnique({
+          where: { id: job.shipperId },
+          select: { stripeCustomerId: true },
+        });
+
+        if (shipper?.stripeCustomerId) {
+          try {
+            // Cancel the expired authorization
+            await cancelJobPayment(job.paymentIntentId);
+
+            // Create a new authorization
+            const newPi = await createJobPaymentIntent(
+              shipper.stripeCustomerId,
+              job.priceCents,
+              `job_reauth_${job.id}`,
+            );
+
+            await prisma.job.update({
+              where: { id: job.id },
+              data: { paymentIntentId: newPi.id, paymentStatus: 'authorized' },
+            });
+
+            await prisma.payment.updateMany({
+              where: { jobId: job.id },
+              data: { stripePaymentIntentId: newPi.id, status: 'authorized' },
+            });
+
+            // Update local reference for downstream use
+            job.paymentIntentId = newPi.id;
+          } catch (reAuthError) {
+            console.error('Re-authorization failed:', reAuthError);
+            return NextResponse.json(
+              { error: 'Payment re-authorization failed. The shipper may need to update their payment method.' },
+              { status: 402 },
+            );
+          }
+        }
+      }
+    }
+
     // Transition to MATCHING
     await prisma.job.update({
       where: { id: params.id },
@@ -46,14 +94,17 @@ export async function POST(
     });
 
     // Query all available drivers with full context
-    // Only include drivers who have completed Stripe Connect onboarding
-    // (or are on Free tier with no subscription requirement)
+    // Prefer drivers with Connect onboarding complete, but also include
+    // legacy drivers with active subscriptions (they can set up Connect later)
     const availableDrivers = await prisma.driver.findMany({
       where: {
         isAvailable: true,
         currentLat: { not: null },
         currentLng: { not: null },
-        stripeConnectOnboarded: true,
+        OR: [
+          { stripeConnectOnboarded: true },
+          { subscriptionStatus: 'active' },
+        ],
       },
       include: {
         user: { select: { name: true } },
