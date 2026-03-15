@@ -23,7 +23,9 @@ function createPrismaClient(): PrismaClient {
       },
     });
   }
-  return new PrismaClient();
+  return new PrismaClient({
+    datasourceUrl: process.env.DATABASE_URL,
+  });
 }
 
 export const prisma = globalForPrisma.prisma || createPrismaClient();
