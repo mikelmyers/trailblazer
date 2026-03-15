@@ -5,6 +5,7 @@ import GoogleProvider from 'next-auth/providers/google';
 import EmailProvider from 'next-auth/providers/email';  // for magic link
 import { prisma } from './db';
 import bcrypt from 'bcryptjs';
+import { authConfig } from './auth.config';
 
 // Wrap PrismaAdapter to prevent it from trying to create sessions for credentials login.
 // PrismaAdapter + CredentialsProvider + JWT strategy is a known conflict in NextAuth v5.
@@ -16,15 +17,9 @@ const adapter = {
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   adapter: adapter as any,
-  session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 }, // 30 days
-  trustHost: true, // Required for Vercel deployments
-  pages: {
-    signIn: '/auth/signin',
-    error: '/auth/signin',
-    verifyRequest: '/auth/verify',
-  },
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -88,20 +83,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as any).role;
-        token.id = user.id as string;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.role = token.role as string;
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
-  },
 });
