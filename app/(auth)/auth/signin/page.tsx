@@ -3,7 +3,7 @@
 import React, { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn } from 'next-auth/react';
 
 type AuthMethod = 'credentials' | 'magic-link' | 'google';
 
@@ -22,6 +22,7 @@ export default function SignInPage() {
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   const errorMessages: Record<string, string> = {
+    CredentialsSignin: 'Invalid email or password.',
     OAuthAccountNotLinked: 'This email is already associated with another sign-in method.',
     Default: 'An error occurred. Please try again.',
   };
@@ -34,45 +35,18 @@ export default function SignInPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await signIn('credentials', {
+      // Use redirect: true — NextAuth handles the cookie + redirect.
+      // The middleware on '/' will then redirect to the role-based dashboard.
+      // We use callbackUrl='/' so the middleware picks up the role and routes correctly.
+      await signIn('credentials', {
         email,
         password,
-        callbackUrl,
-        redirect: false,
+        callbackUrl: explicitCallback ?? '/',
+        redirect: true,
       });
-
-      // Debug: log the full response (check browser console)
-      console.log('signIn response:', JSON.stringify(res, null, 2));
-
-      if (res?.error) {
-        // NextAuth v5 returns the authorize() error message in res.error when it's a CredentialsSignin,
-        // or the error code for other error types.
-        if (res.code && res.code !== 'credentials') {
-          setError(errorMessages[res.code] ?? errorMessages.Default);
-        } else {
-          setError(res.error === 'CredentialsSignin'
-            ? (res.code || 'Invalid email or password.')
-            : (errorMessages[res.error] ?? res.error));
-        }
-      } else {
-        // No error — login succeeded. Redirect based on role.
-        if (explicitCallback) {
-          window.location.href = res?.url ?? explicitCallback;
-        } else {
-          const session = await getSession();
-          console.log('session after login:', JSON.stringify(session, null, 2));
-          const role = (session?.user as any)?.role;
-          const roleRedirects: Record<string, string> = {
-            ADMIN: '/admin',
-            DRIVER: '/driver',
-            SHIPPER: '/shipper',
-          };
-          window.location.href = roleRedirects[role] ?? '/';
-        }
-      }
-    } catch {
-      setError(errorMessages.Default);
-    } finally {
+    } catch (err: any) {
+      // signIn with redirect:true throws on error instead of returning it
+      setError(err?.message ?? errorMessages.Default);
       setLoading(false);
     }
   }
