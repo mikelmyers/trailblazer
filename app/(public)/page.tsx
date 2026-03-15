@@ -108,8 +108,8 @@ export default function LandingPage() {
     <>
       {/* Hero */}
       <section className="bg-background">
-        <div className="max-w-content mx-auto px-6 pt-24 pb-20 md:pt-32 md:pb-28">
-          <h1 className="text-display max-w-3xl">
+        <div className="max-w-content mx-auto px-4 md:px-6 pt-16 pb-14 md:pt-32 md:pb-28">
+          <h1 className="text-h1 md:text-display max-w-3xl">
             The cognitive last-mile dispatch network
           </h1>
           <p className="mt-6 text-body-lg text-text-secondary max-w-xl">
@@ -142,11 +142,11 @@ export default function LandingPage() {
 
       {/* How It Works */}
       <section className="bg-background">
-        <div className="max-w-content mx-auto px-6 py-20 md:py-28">
+        <div className="max-w-content mx-auto px-4 md:px-6 py-14 md:py-28">
           <p className="text-label uppercase text-text-muted tracking-wide-section">
             How It Works
           </p>
-          <h2 className="mt-4 text-h1">For drivers</h2>
+          <h2 className="mt-4 text-h2 md:text-h1">For drivers</h2>
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-10">
             {driverSteps.map((step) => (
               <div key={step.number}>
@@ -179,11 +179,11 @@ export default function LandingPage() {
 
       {/* Powered by Intelligence */}
       <section className="bg-background-2">
-        <div className="max-w-content mx-auto px-6 py-20 md:py-28">
+        <div className="max-w-content mx-auto px-4 md:px-6 py-14 md:py-28">
           <p className="text-label uppercase text-text-muted tracking-wide-section">
             Technology
           </p>
-          <h2 className="mt-4 text-h1 max-w-lg">Powered by intelligence</h2>
+          <h2 className="mt-4 text-h2 md:text-h1 max-w-lg">Powered by intelligence</h2>
           <p className="mt-4 text-body-lg text-text-secondary max-w-xl">
             Every dispatch decision is informed by spatial data, historical
             patterns, and real-time network conditions. The system improves
@@ -216,11 +216,11 @@ export default function LandingPage() {
 
       {/* Built for Scale */}
       <section className="bg-background">
-        <div className="max-w-content mx-auto px-6 py-20 md:py-28">
+        <div className="max-w-content mx-auto px-4 md:px-6 py-14 md:py-28">
           <p className="text-label uppercase text-text-muted tracking-wide-section">
             Infrastructure
           </p>
-          <h2 className="mt-4 text-h1">Built for scale</h2>
+          <h2 className="mt-4 text-h2 md:text-h1">Built for scale</h2>
           <p className="mt-4 text-body-lg text-text-secondary max-w-xl">
             Trailblazer runs on infrastructure designed for high-throughput
             logistics operations. From single-driver fleets to enterprise
@@ -230,7 +230,7 @@ export default function LandingPage() {
           <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10">
             {stats.map((stat) => (
               <div key={stat.label}>
-                <p className="font-mono text-display text-text-primary">
+                <p className="font-mono text-h1 md:text-display text-text-primary">
                   {stat.value}
                   <span className="text-h2 text-text-muted">{stat.suffix}</span>
                 </p>
@@ -249,11 +249,11 @@ export default function LandingPage() {
 
       {/* Pricing Preview */}
       <section className="bg-background-2">
-        <div className="max-w-content mx-auto px-6 py-20 md:py-28">
+        <div className="max-w-content mx-auto px-4 md:px-6 py-14 md:py-28">
           <p className="text-label uppercase text-text-muted tracking-wide-section">
             Pricing
           </p>
-          <h2 className="mt-4 text-h1">Straightforward plans</h2>
+          <h2 className="mt-4 text-h2 md:text-h1">Straightforward plans</h2>
           <p className="mt-4 text-body-lg text-text-secondary max-w-xl">
             Whether you drive or ship, there is a plan built for how you operate.
             No hidden fees, no long-term contracts.
@@ -263,7 +263,7 @@ export default function LandingPage() {
             {pricingPreview.map((item) => (
               <div
                 key={item.role}
-                className="border border-border rounded p-8 bg-background"
+                className="border border-border rounded p-5 md:p-8 bg-background"
               >
                 <h3 className="text-h2">{item.role}</h3>
                 <p className="mt-3 text-body text-text-secondary">

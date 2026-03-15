@@ -113,7 +113,7 @@ export default function AdminJobsPage() {
       )}
 
       {/* Filters */}
-      <div className="flex items-end gap-3 rounded-md border border-border bg-white px-4 py-3">
+      <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-white px-3 md:px-4 py-3">
         <div>
           <label className="block text-[10px] font-medium uppercase tracking-wide-label text-text-muted mb-1">
             Status
