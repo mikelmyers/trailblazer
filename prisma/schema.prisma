@@ -43,6 +43,7 @@ enum JobStatus {
   DELIVERED
   CANCELLED
   FAILED
+  REFUNDED
 }
 
 enum Urgency {

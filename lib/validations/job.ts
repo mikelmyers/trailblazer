@@ -19,6 +19,7 @@ const jobStatusEnum = z.enum(
     'DELIVERED',
     'CANCELLED',
     'FAILED',
+    'REFUNDED',
   ],
   {
     error: 'Invalid job status',
