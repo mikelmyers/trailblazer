@@ -9,8 +9,8 @@ type AuthMethod = 'credentials' | 'magic-link' | 'google';
 
 export default function SignInPage() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') ?? '';
-  const hasExplicitCallback = !!searchParams.get('callbackUrl');
+  const explicitCallback = searchParams.get('callbackUrl');
+  const callbackUrl = explicitCallback ?? '/';
   const urlError = searchParams.get('error');
 
   const [method, setMethod] = useState<AuthMethod>('credentials');
@@ -51,10 +51,10 @@ export default function SignInPage() {
             ? (res.code || 'Invalid email or password.')
             : (errorMessages[res.error] ?? res.error));
         }
-      } else {
+      } else if (res?.ok) {
         // Login succeeded — redirect based on role or explicit callback
-        if (hasExplicitCallback && callbackUrl) {
-          window.location.href = callbackUrl;
+        if (explicitCallback) {
+          window.location.href = res.url ?? explicitCallback;
         } else {
           const session = await getSession();
           const role = (session?.user as any)?.role;
