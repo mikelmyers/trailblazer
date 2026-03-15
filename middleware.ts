@@ -2,16 +2,22 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
+const secret = process.env.NEXTAUTH_SECRET ?? process.env.AUTH_SECRET;
+
 const publicPaths = ['/', '/pricing', '/about'];
 const authPaths = ['/auth'];
 const webhookPaths = ['/api/webhooks'];
+
+async function getAuthToken(req: NextRequest) {
+  return getToken({ req, secret, secureCookie: process.env.NODE_ENV === 'production' });
+}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // For the homepage, redirect authenticated users to their role-based dashboard
   if (pathname === '/') {
-    const token = await getToken({ req: request });
+    const token = await getAuthToken(request);
     if (token?.role) {
       const roleRedirects: Record<string, string> = {
         ADMIN: '/admin',
@@ -33,7 +39,7 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/api/auth')) return NextResponse.next();
   if (pathname.startsWith('/_next') || pathname.startsWith('/favicon') || pathname.includes('.')) return NextResponse.next();
 
-  const token = await getToken({ req: request });
+  const token = await getAuthToken(request);
 
   if (!token) {
     const signInUrl = new URL('/auth/signin', request.url);
