@@ -9,8 +9,8 @@ type AuthMethod = 'credentials' | 'magic-link' | 'google';
 
 export default function SignInPage() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') ?? '';
-  const hasExplicitCallback = !!searchParams.get('callbackUrl');
+  const explicitCallback = searchParams.get('callbackUrl');
+  const callbackUrl = explicitCallback ?? '/';
   const urlError = searchParams.get('error');
 
   const [method, setMethod] = useState<AuthMethod>('credentials');
@@ -52,10 +52,9 @@ export default function SignInPage() {
             : (errorMessages[res.error] ?? res.error));
         }
       } else if (res?.ok) {
-        // If user came from a specific page, send them back there.
-        // Otherwise, redirect based on their role.
-        if (hasExplicitCallback && callbackUrl) {
-          window.location.href = callbackUrl;
+        // Login succeeded — redirect based on role or explicit callback
+        if (explicitCallback) {
+          window.location.href = res.url ?? explicitCallback;
         } else {
           const session = await getSession();
           const role = (session?.user as any)?.role;
