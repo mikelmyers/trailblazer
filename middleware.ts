@@ -9,7 +9,24 @@ const webhookPaths = ['/api/webhooks'];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow public paths
+  // For the homepage, redirect authenticated users to their role-based dashboard
+  if (pathname === '/') {
+    const token = await getToken({ req: request });
+    if (token?.role) {
+      const roleRedirects: Record<string, string> = {
+        ADMIN: '/admin',
+        DRIVER: '/driver',
+        SHIPPER: '/shipper',
+      };
+      const dest = roleRedirects[token.role as string];
+      if (dest) {
+        return NextResponse.redirect(new URL(dest, request.url));
+      }
+    }
+    return NextResponse.next();
+  }
+
+  // Allow other public paths
   if (publicPaths.includes(pathname)) return NextResponse.next();
   if (authPaths.some(p => pathname.startsWith(p))) return NextResponse.next();
   if (webhookPaths.some(p => pathname.startsWith(p))) return NextResponse.next();
