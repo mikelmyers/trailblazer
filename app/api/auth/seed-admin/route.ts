@@ -1,35 +1,37 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 
 /**
- * One-time admin seed endpoint.
- * POST /api/auth/seed-admin
- * Body: { email, password, secret }
+ * One-time admin seed endpoint — works from a phone browser.
  *
- * The `secret` must match NEXTAUTH_SECRET to prevent unauthorized use.
- * Remove this route after seeding your admin account.
+ * Visit in your browser:
+ *   https://your-site.vercel.app/api/auth/seed-admin?secret=YOUR_NEXTAUTH_SECRET
+ *
+ * This will create (or fix) the admin user with:
+ *   Email:    admin@trailblazer.local
+ *   Password: Admin123!@#secure
+ *
+ * REMOVE THIS ROUTE after you have seeded the admin.
  */
-export async function POST(req: Request) {
+
+const ADMIN_EMAIL = 'admin@trailblazer.local';
+const ADMIN_PASSWORD = 'Admin123!@#secure';
+
+export async function GET(req: NextRequest) {
   try {
-    const { email, password, secret } = await req.json();
+    const secret = req.nextUrl.searchParams.get('secret');
 
-    // Protect with NEXTAUTH_SECRET
     if (!secret || secret !== process.env.NEXTAUTH_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized — pass ?secret=YOUR_NEXTAUTH_SECRET' }, { status: 401 });
     }
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
-    }
-
-    const existing = await prisma.user.findUnique({ where: { email } });
+    const existing = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
 
     if (existing) {
-      // Update existing user: set password hash, ensure emailVerified, set ADMIN role
-      const passwordHash = await bcrypt.hash(password, 12);
+      const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
       await prisma.user.update({
-        where: { email },
+        where: { email: ADMIN_EMAIL },
         data: {
           passwordHash,
           role: 'ADMIN',
@@ -38,13 +40,19 @@ export async function POST(req: Request) {
           lockedUntil: null,
         },
       });
-      return NextResponse.json({ message: `Updated existing user ${email} to ADMIN with new password.` });
+      return NextResponse.json({
+        success: true,
+        message: `Fixed existing admin user.`,
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
+        note: 'You can now sign in. REMOVE this route after logging in.',
+      });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, 12);
     await prisma.user.create({
       data: {
-        email,
+        email: ADMIN_EMAIL,
         name: 'Admin',
         role: 'ADMIN',
         passwordHash,
@@ -52,7 +60,13 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ message: `Admin user created: ${email}` });
+    return NextResponse.json({
+      success: true,
+      message: `Admin user created.`,
+      email: ADMIN_EMAIL,
+      password: ADMIN_PASSWORD,
+      note: 'You can now sign in. REMOVE this route after logging in.',
+    });
   } catch (err: any) {
     console.error('seed-admin error:', err);
     return NextResponse.json({ error: err.message || 'Internal error' }, { status: 500 });
