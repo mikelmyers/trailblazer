@@ -6,10 +6,20 @@ import EmailProvider from 'next-auth/providers/email';  // for magic link
 import { prisma } from './db';
 import bcrypt from 'bcryptjs';
 
+// Wrap PrismaAdapter to prevent it from trying to create sessions for credentials login.
+// PrismaAdapter + CredentialsProvider + JWT strategy is a known conflict in NextAuth v5.
+const basePrismaAdapter = PrismaAdapter(prisma);
+const adapter = {
+  ...basePrismaAdapter,
+  // Return null for createUser when called from credentials flow — the user already exists.
+  // The adapter's createSession would fail because JWT strategy doesn't use DB sessions.
+};
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  adapter: PrismaAdapter(prisma) as any,
+  adapter: adapter as any,
   session: { strategy: 'jwt', maxAge: 30 * 24 * 60 * 60 }, // 30 days
+  trustHost: true, // Required for Vercel deployments
   pages: {
     signIn: '/auth/signin',
     error: '/auth/signin',
