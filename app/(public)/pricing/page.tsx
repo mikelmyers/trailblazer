@@ -65,12 +65,26 @@ const driverPlans: Plan[] = [
 
 const shipperPlans: Plan[] = [
   {
+    name: "Shipper Casual",
+    price: 29,
+    interval: "/mo",
+    description: "For individuals who need the occasional delivery without a big commitment.",
+    features: [
+      "Up to 5 jobs per month",
+      "8% convenience fee per job",
+      "Standard dispatch matching",
+      "Email notifications",
+      "Delivery confirmation and proof",
+    ],
+  },
+  {
     name: "Shipper Starter",
     price: 199,
     interval: "/mo",
     description: "For businesses getting started with on-demand delivery.",
     features: [
       "Up to 50 jobs per month",
+      "No per-job fees",
       "Basic shipment visibility",
       "Standard dispatch matching",
       "Email notifications",
@@ -84,6 +98,7 @@ const shipperPlans: Plan[] = [
     description: "Unlimited capacity with full network visibility and priority.",
     features: [
       "Unlimited job postings",
+      "No per-job fees",
       "Full real-time tracking dashboard",
       "Priority dispatch matching",
       "Dedicated account support",
@@ -121,9 +136,14 @@ const faqs = [
       "Yes. All drivers start on Free by default — no credit card required. You can upgrade to Standard or Pro at any time from your account dashboard. Upgrades take effect immediately.",
   },
   {
-    question: "What happens if I exceed 50 jobs on the Shipper Starter plan?",
+    question: "What is the Shipper Casual plan for?",
     answer:
-      "You will receive a notification when approaching your limit. Additional jobs beyond 50 are billed at $5 each, or you can upgrade to the Growth plan for unlimited access at any time.",
+      "Casual is for individuals or small businesses who only need a few deliveries per month — like getting construction materials delivered or moving something without a trailer. You pay a low $29/month subscription and an 8% convenience fee on each job. No long-term commitment needed.",
+  },
+  {
+    question: "What happens if I exceed the job limit on my Shipper plan?",
+    answer:
+      "You will receive a notification when approaching your limit. You can upgrade to a higher plan at any time for more capacity — Casual allows 5 jobs/month, Starter allows 50, and Growth is unlimited.",
   },
   {
     question: "Do you offer enterprise pricing?",

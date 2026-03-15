@@ -12,6 +12,7 @@ function getTierFromPriceId(priceId: string): { role: 'DRIVER' | 'SHIPPER'; tier
   if (PRICE_IDS.DRIVER_FREE && priceId === PRICE_IDS.DRIVER_FREE) return { role: 'DRIVER', tier: 'FREE' };
   if (priceId === PRICE_IDS.DRIVER_STANDARD) return { role: 'DRIVER', tier: 'STANDARD' };
   if (priceId === PRICE_IDS.DRIVER_PRO) return { role: 'DRIVER', tier: 'PRO' };
+  if (priceId === PRICE_IDS.SHIPPER_CASUAL) return { role: 'SHIPPER', tier: 'CASUAL' };
   if (priceId === PRICE_IDS.SHIPPER_STARTER) return { role: 'SHIPPER', tier: 'STARTER' };
   if (priceId === PRICE_IDS.SHIPPER_GROWTH) return { role: 'SHIPPER', tier: 'GROWTH' };
   return null;
@@ -44,7 +45,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       where: { stripeCustomerId: customerId },
       data: {
         subscriptionId,
-        subscriptionTier: tierInfo.tier as 'STARTER' | 'GROWTH',
+        subscriptionTier: tierInfo.tier as 'CASUAL' | 'STARTER' | 'GROWTH',
         subscriptionStatus: 'active',
       },
     });

@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { createJobSchema, jobQuerySchema } from '@/lib/validations/job';
 import { optimizeRoute } from '@/lib/primordia';
-import { calculateSuggestedPrice } from '@/lib/pricing';
+import { calculateSuggestedPrice, calculateShipperFee, SHIPPER_JOB_LIMITS } from '@/lib/pricing';
 import { createJobPaymentIntent } from '@/lib/stripe';
 
 export async function GET(request: Request) {
@@ -126,9 +126,10 @@ export async function POST(request: Request) {
       );
     }
 
-    if (shipper.subscriptionTier === 'STARTER' && shipper.monthlyJobCount >= 50) {
+    const jobLimit = SHIPPER_JOB_LIMITS[shipper.subscriptionTier] ?? null;
+    if (jobLimit !== null && shipper.monthlyJobCount >= jobLimit) {
       return NextResponse.json(
-        { error: 'Monthly job limit reached. Upgrade to Growth tier for unlimited jobs.' },
+        { error: `Monthly job limit (${jobLimit}) reached. Upgrade your plan for more jobs.` },
         { status: 403 }
       );
     }
@@ -165,7 +166,14 @@ export async function POST(request: Request) {
       dropoffLng,
     });
 
+    // Calculate shipper convenience fee (CASUAL tier pays 8% on top)
+    const { shipperFeeCents, totalChargeCents } = calculateShipperFee(
+      priceCents,
+      shipper.subscriptionTier,
+    );
+
     // Create Stripe PaymentIntent (authorize only, capture on delivery)
+    // Charge includes the shipper convenience fee on top of the job price
     let paymentIntentId: string | null = null;
     let paymentStatus: string = 'pending';
 
@@ -173,7 +181,7 @@ export async function POST(request: Request) {
       try {
         const pi = await createJobPaymentIntent(
           shipper.stripeCustomerId,
-          priceCents,
+          totalChargeCents,
           `job_${Date.now()}`,
         );
         paymentIntentId = pi.id;
@@ -217,8 +225,8 @@ export async function POST(request: Request) {
           data: {
             jobId: createdJob.id,
             stripePaymentIntentId: paymentIntentId,
-            amountCents: priceCents,
-            platformFeeCents: 0, // calculated at match time
+            amountCents: totalChargeCents,
+            platformFeeCents: shipperFeeCents, // shipper fee known upfront; driver fee added at match
             driverPayoutCents: 0, // calculated at match time
             status: 'authorized',
           },
