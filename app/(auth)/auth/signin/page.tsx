@@ -21,7 +21,6 @@ export default function SignInPage() {
   const [magicLinkSent, setMagicLinkSent] = useState(false);
 
   const errorMessages: Record<string, string> = {
-    CredentialsSignin: 'Invalid email or password.',
     OAuthAccountNotLinked: 'This email is already associated with another sign-in method.',
     Default: 'An error occurred. Please try again.',
   };
@@ -41,7 +40,16 @@ export default function SignInPage() {
         redirect: false,
       });
       if (res?.error) {
-        setError(errorMessages[res.error] ?? errorMessages.Default);
+        // NextAuth v5 returns the authorize() error message in res.error when it's a CredentialsSignin,
+        // or the error code for other error types.
+        if (res.code && res.code !== 'credentials') {
+          setError(errorMessages[res.code] ?? errorMessages.Default);
+        } else {
+          // Extract custom error message from authorize() throw
+          setError(res.error === 'CredentialsSignin'
+            ? (res.code || 'Invalid email or password.')
+            : (errorMessages[res.error] ?? res.error));
+        }
       } else if (res?.url) {
         window.location.href = res.url;
       }

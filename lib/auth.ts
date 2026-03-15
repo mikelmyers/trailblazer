@@ -31,17 +31,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Email and password are required.');
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
         });
 
-        if (!user || !user.passwordHash) return null;
+        if (!user || !user.passwordHash) {
+          throw new Error('No account found with that email.');
+        }
 
         // Check lockout
         if (user.lockedUntil && user.lockedUntil > new Date()) {
-          throw new Error('Account locked. Try again later.');
+          throw new Error('Account locked due to too many failed attempts. Try again later.');
         }
 
         const isValid = await bcrypt.compare(credentials.password as string, user.passwordHash);
@@ -54,12 +58,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             update.lockedUntil = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
           }
           await prisma.user.update({ where: { id: user.id }, data: update });
-          return null;
+          throw new Error('Incorrect password.');
         }
 
         // Check email verification
         if (!user.emailVerified) {
-          throw new Error('Please verify your email first.');
+          throw new Error('Please verify your email before signing in.');
         }
 
         // Reset failed attempts on success
