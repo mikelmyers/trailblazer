@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Header } from '@/components/dashboard/header';
 import { Sidebar } from '@/components/dashboard/sidebar';
@@ -60,6 +60,7 @@ interface DriverShellProps {
 
 const DriverShell: React.FC<DriverShellProps> = ({ userName, children }) => {
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleSignOut = async () => {
     await fetch('/api/auth/signout', { method: 'POST' });
@@ -68,12 +69,21 @@ const DriverShell: React.FC<DriverShellProps> = ({ userName, children }) => {
 
   return (
     <div className="min-h-screen bg-background-2 flex flex-col">
-      <Header role="driver" userName={userName} onSignOut={handleSignOut} />
+      <Header
+        role="driver"
+        userName={userName}
+        onSignOut={handleSignOut}
+        onMobileMenuToggle={() => setMobileOpen(!mobileOpen)}
+      />
 
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar items={sidebarItems} />
+        <Sidebar
+          items={sidebarItems}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+        />
 
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-content mx-auto">{children}</div>
         </main>
       </div>

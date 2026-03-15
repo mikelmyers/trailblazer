@@ -139,13 +139,13 @@ export default function AdminDashboardPage() {
     return (
       <div className="space-y-6">
         <div className="section-label">Primordia Dispatch Engine</div>
-        <div className="grid grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-24 rounded-md border border-border bg-white animate-pulse" />
           ))}
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2 h-96 rounded-md border border-border bg-white animate-pulse" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
+          <div className="lg:col-span-2 h-96 rounded-md border border-border bg-white animate-pulse" />
           <div className="h-96 rounded-md border border-border bg-white animate-pulse" />
         </div>
       </div>
@@ -164,7 +164,7 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Network overview stats */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         {statCards.map((card) => (
           <div key={card.label} className="rounded-md border border-border bg-white px-4 py-4">
             <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
@@ -181,9 +181,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Map + Activity feed */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 md:gap-4">
         {/* TerraMap — live active dispatches */}
-        <div className="col-span-2 rounded-md border border-border bg-white">
+        <div className="lg:col-span-2 rounded-md border border-border bg-white">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
               <div className="text-[13px] font-semibold tracking-tight-h3 text-text-primary">
@@ -297,7 +297,7 @@ export default function AdminDashboardPage() {
               <p className="text-[11px] text-text-muted">No health data available</p>
             </div>
           ) : (
-            <div className="grid grid-cols-4 divide-x divide-border">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
               {health.map((svc) => (
                 <div key={svc.service} className="px-4 py-4">
                   <div className="flex items-center gap-2 mb-2">

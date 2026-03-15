@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Header } from '@/components/dashboard/header';
 import { Sidebar } from '@/components/dashboard/sidebar';
 
@@ -79,6 +79,8 @@ export default function ShipperLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
   const handleSignOut = async () => {
     try {
       await fetch('/api/auth/signout', { method: 'POST' });
@@ -90,10 +92,18 @@ export default function ShipperLayout({
 
   return (
     <div className="h-screen flex flex-col bg-background-2">
-      <Header role="shipper" onSignOut={handleSignOut} />
+      <Header
+        role="shipper"
+        onSignOut={handleSignOut}
+        onMobileMenuToggle={() => setMobileOpen(!mobileOpen)}
+      />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar items={sidebarItems} />
-        <main className="flex-1 overflow-y-auto p-8">
+        <Sidebar
+          items={sidebarItems}
+          mobileOpen={mobileOpen}
+          onMobileClose={() => setMobileOpen(false)}
+        />
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-content mx-auto">{children}</div>
         </main>
       </div>

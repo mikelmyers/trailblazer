@@ -32,7 +32,8 @@ export async function GET(request: Request) {
     const where: Record<string, unknown> = {};
 
     if (status) {
-      where.status = status;
+      const statuses = status.split(',').map((s) => s.trim());
+      where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
     }
 
     if (session.user.role === 'DRIVER') {
