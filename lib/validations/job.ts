@@ -35,6 +35,16 @@ export const createJobSchema = z.object({
   description: z.string().optional(),
   packageSize: packageSizeEnum,
   urgency: urgencyEnum,
+  priceCents: z.number().int().min(500, 'Price must be at least $5.00'),
+});
+
+export const priceEstimateSchema = z.object({
+  pickupLat: z.number({ error: 'Pickup latitude is required' }),
+  pickupLng: z.number({ error: 'Pickup longitude is required' }),
+  dropoffLat: z.number({ error: 'Dropoff latitude is required' }),
+  dropoffLng: z.number({ error: 'Dropoff longitude is required' }),
+  packageSize: packageSizeEnum,
+  urgency: urgencyEnum,
 });
 
 export const updateJobStatusSchema = z.object({

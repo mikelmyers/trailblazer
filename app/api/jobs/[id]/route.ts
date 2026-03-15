@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { updateJobStatusSchema } from '@/lib/validations/job';
 import { flagAnomaly } from '@/lib/primordia';
+import { captureJobPayment, cancelJobPayment, transferToDriver } from '@/lib/stripe';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   POSTED: ['MATCHING', 'CANCELLED'],
@@ -91,7 +92,16 @@ export async function PATCH(
       where: { id: params.id },
       include: {
         shipper: { select: { userId: true } },
-        driver: { select: { id: true, userId: true, rating: true, totalJobs: true } },
+        driver: {
+          select: {
+            id: true,
+            userId: true,
+            rating: true,
+            totalJobs: true,
+            stripeConnectAccountId: true,
+            stripeConnectOnboarded: true,
+          },
+        },
       },
     });
 
@@ -153,6 +163,73 @@ export async function PATCH(
             rating: Math.round(newRating * 100) / 100,
           },
         });
+
+        // Capture payment and transfer to driver
+        if (job.paymentIntentId && job.paymentStatus === 'authorized') {
+          try {
+            await captureJobPayment(job.paymentIntentId);
+
+            await tx.job.update({
+              where: { id: job.id },
+              data: { paymentStatus: 'captured' },
+            });
+
+            await tx.payment.updateMany({
+              where: { jobId: job.id },
+              data: { status: 'captured', capturedAt: new Date() },
+            });
+
+            // Transfer payout to driver's Connect account
+            if (
+              job.driver.stripeConnectAccountId &&
+              job.driver.stripeConnectOnboarded &&
+              job.driverPayoutCents &&
+              job.driverPayoutCents > 0
+            ) {
+              const transfer = await transferToDriver(
+                job.driverPayoutCents,
+                job.driver.stripeConnectAccountId,
+                job.id,
+              );
+
+              await tx.job.update({
+                where: { id: job.id },
+                data: { paymentStatus: 'transferred', transferId: transfer.id },
+              });
+
+              await tx.payment.updateMany({
+                where: { jobId: job.id },
+                data: {
+                  status: 'transferred',
+                  stripeTransferId: transfer.id,
+                  transferredAt: new Date(),
+                },
+              });
+            }
+          } catch (paymentError) {
+            console.error('Payment capture/transfer failed:', paymentError);
+            // Delivery is still marked complete — payment issue logged for manual resolution
+          }
+        }
+      }
+
+      // Cancel payment on job cancellation
+      if (newStatus === 'CANCELLED' && job.paymentIntentId && job.paymentStatus === 'authorized') {
+        try {
+          await cancelJobPayment(job.paymentIntentId);
+
+          await tx.job.update({
+            where: { id: job.id },
+            data: { paymentStatus: 'cancelled' },
+          });
+
+          await tx.payment.updateMany({
+            where: { jobId: job.id },
+            data: { status: 'cancelled' },
+          });
+        } catch (cancelError) {
+          console.error('Payment cancellation failed:', cancelError);
+        }
       }
 
       return updated;

@@ -25,12 +25,16 @@ interface Job {
   packageSize: PackageSize;
   createdAt: string | Date;
   driverId?: string | null;
+  priceCents?: number | null;
+  driverPayoutCents?: number | null;
 }
 
 interface JobCardProps {
   job: Job;
   onClick?: (job: Job) => void;
   className?: string;
+  /** Show driver payout instead of shipper price */
+  showPayout?: boolean;
 }
 
 const STATUS_VARIANT: Record<JobStatus, BadgeVariant> = {
@@ -99,7 +103,11 @@ function formatRelativeTime(date: string | Date): string {
   return `${months}mo ago`;
 }
 
-const JobCard: React.FC<JobCardProps> = ({ job, onClick, className = '' }) => {
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+const JobCard: React.FC<JobCardProps> = ({ job, onClick, className = '', showPayout = false }) => {
   const handleClick = () => {
     if (onClick) onClick(job);
   };
@@ -123,9 +131,20 @@ const JobCard: React.FC<JobCardProps> = ({ job, onClick, className = '' }) => {
         <span className="font-mono text-xs text-text-secondary truncate max-w-[120px]">
           {job.id}
         </span>
-        <span className="text-[11px] text-text-muted">
-          {formatRelativeTime(job.createdAt)}
-        </span>
+        <div className="flex items-center gap-3">
+          {showPayout && job.driverPayoutCents != null && job.driverPayoutCents > 0 ? (
+            <span className="font-mono text-sm font-semibold text-success">
+              {formatCents(job.driverPayoutCents)}
+            </span>
+          ) : !showPayout && job.priceCents != null && job.priceCents > 0 ? (
+            <span className="font-mono text-sm font-semibold text-text-primary">
+              {formatCents(job.priceCents)}
+            </span>
+          ) : null}
+          <span className="text-[11px] text-text-muted">
+            {formatRelativeTime(job.createdAt)}
+          </span>
+        </div>
       </div>
 
       <div className="space-y-1.5 mb-3">

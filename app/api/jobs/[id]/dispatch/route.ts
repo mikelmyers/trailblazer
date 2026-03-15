@@ -5,6 +5,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { dispatchMatch, computeDriverPickupRoutes } from '@/lib/primordia';
 import type { JobContext } from '@/lib/primordia';
+import { calculatePlatformFee } from '@/lib/pricing';
 
 export async function POST(
   request: Request,
@@ -45,12 +46,14 @@ export async function POST(
     });
 
     // Query all available drivers with full context
+    // Only include drivers who have completed Stripe Connect onboarding
+    // (or are on Free tier with no subscription requirement)
     const availableDrivers = await prisma.driver.findMany({
       where: {
         isAvailable: true,
         currentLat: { not: null },
         currentLng: { not: null },
-        subscriptionStatus: 'active',
+        stripeConnectOnboarded: true,
       },
       include: {
         user: { select: { name: true } },
@@ -105,12 +108,41 @@ export async function POST(
 
     const matchResult = await dispatchMatch(jobContext, enrichedCandidates);
 
-    // Step 3: Persist match result
+    // Step 3: Calculate platform fee based on matched driver's tier
+    const matchedDriver = availableDrivers.find((d: typeof availableDrivers[number]) => d.id === matchResult.driverId);
+    const driverTier = matchedDriver?.subscriptionTier ?? 'FREE';
+
+    let feeData: Record<string, unknown> = {};
+    if (job.priceCents) {
+      const { platformFeeCents, driverPayoutCents, feePercent } = calculatePlatformFee(
+        job.priceCents,
+        driverTier,
+      );
+      feeData = {
+        platformFeeCents,
+        driverPayoutCents,
+        platformFeePercent: feePercent,
+      };
+
+      // Update Payment record with fee breakdown
+      if (job.paymentIntentId) {
+        await prisma.payment.updateMany({
+          where: { jobId: job.id },
+          data: {
+            platformFeeCents,
+            driverPayoutCents,
+          },
+        });
+      }
+    }
+
+    // Step 4: Persist match result
     const updatedJob = await prisma.job.update({
       where: { id: params.id },
       data: {
         status: 'MATCHED',
         driverId: matchResult.driverId,
+        ...feeData,
         dispatchMatch: {
           driverId: matchResult.driverId,
           driverName: matchResult.driverName,

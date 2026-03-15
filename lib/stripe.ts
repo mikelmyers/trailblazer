@@ -53,3 +53,77 @@ export async function createCustomerPortalSession(
     return_url: returnUrl,
   });
 }
+
+/* ── Stripe Connect (Driver Payouts) ─────────────────────────────────────── */
+
+export async function createConnectAccount(email: string, name?: string) {
+  return getStripe().accounts.create({
+    type: 'express',
+    email,
+    capabilities: {
+      transfers: { requested: true },
+    },
+    business_type: 'individual',
+    individual: name ? { first_name: name.split(' ')[0], last_name: name.split(' ').slice(1).join(' ') || undefined } : undefined,
+  });
+}
+
+export async function createAccountLink(
+  accountId: string,
+  refreshUrl: string,
+  returnUrl: string,
+) {
+  return getStripe().accountLinks.create({
+    account: accountId,
+    refresh_url: refreshUrl,
+    return_url: returnUrl,
+    type: 'account_onboarding',
+  });
+}
+
+export async function getConnectAccountStatus(accountId: string) {
+  const account = await getStripe().accounts.retrieve(accountId);
+  return {
+    chargesEnabled: account.charges_enabled,
+    payoutsEnabled: account.payouts_enabled,
+    detailsSubmitted: account.details_submitted,
+  };
+}
+
+/* ── Job Payment Intents ─────────────────────────────────────────────────── */
+
+export async function createJobPaymentIntent(
+  customerId: string,
+  amountCents: number,
+  jobReference: string,
+) {
+  return getStripe().paymentIntents.create({
+    customer: customerId,
+    amount: amountCents,
+    currency: 'usd',
+    capture_method: 'manual',
+    metadata: { jobReference },
+  });
+}
+
+export async function captureJobPayment(paymentIntentId: string) {
+  return getStripe().paymentIntents.capture(paymentIntentId);
+}
+
+export async function cancelJobPayment(paymentIntentId: string) {
+  return getStripe().paymentIntents.cancel(paymentIntentId);
+}
+
+export async function transferToDriver(
+  amountCents: number,
+  connectAccountId: string,
+  jobId: string,
+) {
+  return getStripe().transfers.create({
+    amount: amountCents,
+    currency: 'usd',
+    destination: connectAccountId,
+    transfer_group: jobId,
+    metadata: { jobId },
+  });
+}

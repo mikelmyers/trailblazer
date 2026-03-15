@@ -165,6 +165,26 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   }
 }
 
+async function handleAccountUpdated(account: Stripe.Account) {
+  if (!account.id) return;
+
+  const isOnboarded =
+    account.charges_enabled && account.payouts_enabled && account.details_submitted;
+
+  if (isOnboarded) {
+    const driver = await prisma.driver.findUnique({
+      where: { stripeConnectAccountId: account.id },
+    });
+
+    if (driver && !driver.stripeConnectOnboarded) {
+      await prisma.driver.update({
+        where: { id: driver.id },
+        data: { stripeConnectOnboarded: true },
+      });
+    }
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.text();
@@ -198,6 +218,10 @@ export async function POST(request: Request) {
 
       case 'invoice.payment_failed':
         await handlePaymentFailed(event.data.object as Stripe.Invoice);
+        break;
+
+      case 'account.updated':
+        await handleAccountUpdated(event.data.object as Stripe.Account);
         break;
 
       default:

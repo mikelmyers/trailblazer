@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -18,6 +18,7 @@ interface JobPostFormData {
   description: string;
   urgency: Urgency;
   specialInstructions: string;
+  priceCents: number;
 }
 
 interface JobPostFormProps {
@@ -26,14 +27,15 @@ interface JobPostFormProps {
   className?: string;
 }
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 const STEP_LABELS: Record<Step, string> = {
   1: 'Pickup',
   2: 'Dropoff',
   3: 'Package',
   4: 'Urgency',
-  5: 'Review',
+  5: 'Pricing',
+  6: 'Review',
 };
 
 const PACKAGE_OPTIONS: { value: PackageSize; label: string; description: string }[] = [
@@ -49,6 +51,29 @@ const URGENCY_OPTIONS: { value: Urgency; label: string; description: string; col
   { value: 'EXPRESS', label: 'Express', description: 'Delivery within 4 hours', color: 'border-yellow-400' },
   { value: 'CRITICAL', label: 'Critical', description: 'Delivery within 1 hour', color: 'border-red-400' },
 ];
+
+interface PriceEstimate {
+  suggestedPriceCents: number;
+  suggestedPriceFormatted: string;
+  priceRange: {
+    minCents: number;
+    maxCents: number;
+    minFormatted: string;
+    maxFormatted: string;
+  };
+  breakdown: {
+    baseCost: string;
+    package: string;
+    urgency: string;
+    time: string;
+    routeComplexity: string;
+    region: string;
+  };
+  route: {
+    distanceKm: number;
+    durationMin: number;
+  };
+}
 
 interface StepErrors {
   [field: string]: string;
@@ -84,6 +109,11 @@ function validateStep(step: Step, data: JobPostFormData): StepErrors {
         errors.urgency = 'Please select an urgency level';
       }
       break;
+    case 5:
+      if (!data.priceCents || data.priceCents < 500) {
+        errors.priceCents = 'Price must be at least $5.00';
+      }
+      break;
     default:
       break;
   }
@@ -109,7 +139,12 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
     description: '',
     urgency: 'STANDARD',
     specialInstructions: '',
+    priceCents: 0,
   });
+
+  const [priceEstimate, setPriceEstimate] = useState<PriceEstimate | null>(null);
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [priceInput, setPriceInput] = useState('');
 
   const updateField = useCallback(
     <K extends keyof JobPostFormData>(field: K, value: JobPostFormData[K]) => {
@@ -123,6 +158,57 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
     []
   );
 
+  // Fetch price estimate when entering step 5
+  useEffect(() => {
+    if (step !== 5) return;
+    if (priceEstimate) return;
+
+    async function fetchEstimate() {
+      setEstimateLoading(true);
+      try {
+        const res = await fetch('/api/jobs/price-estimate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pickupLat: formData.pickupLat,
+            pickupLng: formData.pickupLng,
+            dropoffLat: formData.dropoffLat,
+            dropoffLng: formData.dropoffLng,
+            packageSize: formData.packageSize,
+            urgency: formData.urgency,
+          }),
+        });
+
+        if (res.ok) {
+          const data: PriceEstimate = await res.json();
+          setPriceEstimate(data);
+          const suggestedDollars = (data.suggestedPriceCents / 100).toFixed(2);
+          setPriceInput(suggestedDollars);
+          updateField('priceCents', data.suggestedPriceCents);
+        }
+      } catch {
+        // Estimate failed — user can still enter price manually
+      } finally {
+        setEstimateLoading(false);
+      }
+    }
+
+    fetchEstimate();
+  }, [step, priceEstimate, formData.pickupLat, formData.pickupLng, formData.dropoffLat, formData.dropoffLng, formData.packageSize, formData.urgency, updateField]);
+
+  const handlePriceChange = useCallback(
+    (value: string) => {
+      setPriceInput(value);
+      const dollars = parseFloat(value);
+      if (!isNaN(dollars) && dollars > 0) {
+        updateField('priceCents', Math.round(dollars * 100));
+      } else {
+        updateField('priceCents', 0);
+      }
+    },
+    [updateField],
+  );
+
   const handleNext = useCallback(() => {
     const stepErrors = validateStep(step, formData);
     if (Object.keys(stepErrors).length > 0) {
@@ -130,7 +216,7 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
       return;
     }
     setErrors({});
-    setStep((s) => Math.min(s + 1, 5) as Step);
+    setStep((s) => Math.min(s + 1, 6) as Step);
   }, [step, formData]);
 
   const handleBack = useCallback(() => {
@@ -142,11 +228,16 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
     await onSubmit(formData);
   }, [formData, onSubmit]);
 
+  const isPriceBelowRange =
+    priceEstimate && formData.priceCents > 0 && formData.priceCents < priceEstimate.priceRange.minCents;
+  const isPriceAboveRange =
+    priceEstimate && formData.priceCents > priceEstimate.priceRange.maxCents;
+
   return (
     <div className={`w-full max-w-xl ${className}`}>
       {/* Step indicator */}
       <div className="flex items-center mb-8">
-        {([1, 2, 3, 4, 5] as Step[]).map((s, i) => (
+        {([1, 2, 3, 4, 5, 6] as Step[]).map((s, i) => (
           <React.Fragment key={s}>
             <div className="flex flex-col items-center">
               <div
@@ -174,7 +265,7 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
                 {STEP_LABELS[s]}
               </span>
             </div>
-            {i < 4 && (
+            {i < 5 && (
               <div
                 className={`flex-1 h-px mx-2 mt-[-12px] ${
                   s < step ? 'bg-accent' : 'bg-border'
@@ -405,8 +496,119 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
         </div>
       )}
 
-      {/* Step 5: Review */}
+      {/* Step 5: Pricing */}
       {step === 5 && (
+        <div className="space-y-4">
+          <h3 className="text-h3 text-text-primary">Set Your Price</h3>
+          <p className="text-sm text-text-secondary">
+            Set how much you will pay for this delivery. Our pricing engine suggests a price based on distance, package, urgency, time of day, and region.
+          </p>
+
+          {estimateLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
+              <span className="ml-3 text-sm text-text-secondary">Calculating suggested price...</span>
+            </div>
+          ) : (
+            <>
+              {/* Suggested price */}
+              {priceEstimate && (
+                <div className="bg-background-3 rounded-lg p-5 border border-border">
+                  <div className="flex items-baseline justify-between mb-3">
+                    <span className="text-sm font-medium text-text-primary">Suggested Price</span>
+                    <span className="font-mono text-h2 font-bold text-text-primary">
+                      {priceEstimate.suggestedPriceFormatted}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs text-text-secondary">
+                    <div className="flex justify-between">
+                      <span>Base cost</span>
+                      <span className="font-mono">{priceEstimate.breakdown.baseCost}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Package</span>
+                      <span className="font-mono">{priceEstimate.breakdown.package}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Urgency</span>
+                      <span className="font-mono">{priceEstimate.breakdown.urgency}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Time of day</span>
+                      <span className="font-mono">{priceEstimate.breakdown.time}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Route complexity</span>
+                      <span className="font-mono">{priceEstimate.breakdown.routeComplexity}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Region</span>
+                      <span className="font-mono">{priceEstimate.breakdown.region}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-border flex items-center gap-2 text-xs text-text-muted">
+                    <span>Route: {priceEstimate.route.distanceKm} km</span>
+                    <span className="text-border">|</span>
+                    <span>ETA: {priceEstimate.route.durationMin} min</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Price input */}
+              <div>
+                <label className="block text-sm font-medium text-text-primary mb-1.5">
+                  Your Price
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted font-mono">$</span>
+                  <input
+                    type="number"
+                    step="0.50"
+                    min="5.00"
+                    className="w-full pl-7 pr-3 py-2 bg-background-3 border border-border rounded-md text-sm font-mono placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition"
+                    placeholder="0.00"
+                    value={priceInput}
+                    onChange={(e) => handlePriceChange(e.target.value)}
+                  />
+                </div>
+                {errors.priceCents && (
+                  <p className="text-xs text-danger mt-1">{errors.priceCents}</p>
+                )}
+              </div>
+
+              {/* Price range warning */}
+              {isPriceBelowRange && (
+                <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-600 mt-0.5 shrink-0">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                  <p className="text-xs text-yellow-800">
+                    This price is below the typical range ({priceEstimate?.priceRange.minFormatted} – {priceEstimate?.priceRange.maxFormatted}). Drivers may be less likely to accept this job.
+                  </p>
+                </div>
+              )}
+              {isPriceAboveRange && (
+                <p className="text-xs text-text-muted">
+                  This price is above the typical range. Drivers will love this job.
+                </p>
+              )}
+
+              {priceEstimate && !isPriceBelowRange && !isPriceAboveRange && (
+                <p className="text-xs text-text-muted">
+                  Drivers typically accept {priceEstimate.priceRange.minFormatted} – {priceEstimate.priceRange.maxFormatted} for this route.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Step 6: Review */}
+      {step === 6 && (
         <div className="space-y-4">
           <h3 className="text-h3 text-text-primary">Review Your Job</h3>
 
@@ -426,7 +628,7 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
                   {formData.dropoffLat.toFixed(6)}, {formData.dropoffLng.toFixed(6)}
                 </p>
               </div>
-              <div className="border-t border-border pt-3 grid grid-cols-2 gap-3">
+              <div className="border-t border-border pt-3 grid grid-cols-3 gap-3">
                 <div>
                   <span className="text-label uppercase text-text-muted">Package</span>
                   <p className="text-sm text-text-primary mt-0.5">
@@ -437,6 +639,12 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
                   <span className="text-label uppercase text-text-muted">Urgency</span>
                   <p className="text-sm text-text-primary mt-0.5">
                     {URGENCY_OPTIONS.find((u) => u.value === formData.urgency)?.label}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-label uppercase text-text-muted">Price</span>
+                  <p className="text-sm text-text-primary mt-0.5 font-mono font-semibold">
+                    ${(formData.priceCents / 100).toFixed(2)}
                   </p>
                 </div>
               </div>
@@ -471,7 +679,7 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
           <div />
         )}
 
-        {step < 5 ? (
+        {step < 6 ? (
           <Button variant="primary" size="sm" onClick={handleNext} type="button">
             Next
           </Button>

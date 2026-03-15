@@ -126,23 +126,25 @@ model PasswordResetToken {
 }
 
 model Driver {
-  id                 String      @id @default(cuid())
-  userId             String      @unique
-  user               User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicleType        VehicleType
-  serviceAreas       String[]
-  isAvailable        Boolean     @default(false)
-  currentLat         Float?
-  currentLng         Float?
-  lastLocationAt     DateTime?
-  stripeCustomerId   String?     @unique
-  subscriptionId     String?     @unique
-  subscriptionTier   DriverTier  @default(FREE)
-  subscriptionStatus String?
-  rating             Float       @default(5.0)
-  totalJobs          Int         @default(0)
-  jobs               Job[]
-  createdAt          DateTime    @default(now())
+  id                      String      @id @default(cuid())
+  userId                  String      @unique
+  user                    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleType             VehicleType
+  serviceAreas            String[]
+  isAvailable             Boolean     @default(false)
+  currentLat              Float?
+  currentLng              Float?
+  lastLocationAt          DateTime?
+  stripeCustomerId        String?     @unique
+  subscriptionId          String?     @unique
+  subscriptionTier        DriverTier  @default(FREE)
+  subscriptionStatus      String?
+  stripeConnectAccountId  String?     @unique
+  stripeConnectOnboarded  Boolean     @default(false)
+  rating                  Float       @default(5.0)
+  totalJobs               Int         @default(0)
+  jobs                    Job[]
+  createdAt               DateTime    @default(now())
 }
 
 model Shipper {
@@ -160,27 +162,56 @@ model Shipper {
 }
 
 model Job {
-  id              String      @id @default(cuid())
-  shipperId       String
-  shipper         Shipper     @relation(fields: [shipperId], references: [id], onDelete: Cascade)
-  driverId        String?
-  driver          Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
-  status          JobStatus   @default(POSTED)
-  urgency         Urgency     @default(STANDARD)
-  pickupAddress   String
-  pickupLat       Float
-  pickupLng       Float
-  dropoffAddress  String
-  dropoffLat      Float
-  dropoffLng      Float
-  description     String?
-  packageSize     PackageSize @default(SMALL)
-  estimatedRoute  Json?
-  dispatchMatch   Json?
-  shipperRating   Int?
-  driverRating    Int?
-  createdAt       DateTime    @default(now())
-  matchedAt       DateTime?
-  pickedUpAt      DateTime?
-  deliveredAt     DateTime?
+  id                  String      @id @default(cuid())
+  shipperId           String
+  shipper             Shipper     @relation(fields: [shipperId], references: [id], onDelete: Cascade)
+  driverId            String?
+  driver              Driver?     @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  status              JobStatus   @default(POSTED)
+  urgency             Urgency     @default(STANDARD)
+  pickupAddress       String
+  pickupLat           Float
+  pickupLng           Float
+  dropoffAddress      String
+  dropoffLat          Float
+  dropoffLng          Float
+  description         String?
+  packageSize         PackageSize @default(SMALL)
+  estimatedRoute      Json?
+  dispatchMatch       Json?
+  shipperRating       Int?
+  driverRating        Int?
+  // Pricing
+  priceCents          Int?
+  suggestedPriceCents Int?
+  platformFeeCents    Int?
+  driverPayoutCents   Int?
+  platformFeePercent  Float?
+  pricingBreakdown    Json?
+  // Payment
+  paymentIntentId     String?
+  paymentStatus       String?
+  transferId          String?
+  payment             Payment?
+  createdAt           DateTime    @default(now())
+  matchedAt           DateTime?
+  pickedUpAt          DateTime?
+  deliveredAt         DateTime?
+}
+
+model Payment {
+  id                    String    @id @default(cuid())
+  jobId                 String    @unique
+  job                   Job       @relation(fields: [jobId], references: [id])
+  stripePaymentIntentId String    @unique
+  stripeTransferId      String?   @unique
+  amountCents           Int
+  platformFeeCents      Int
+  driverPayoutCents     Int
+  currency              String    @default("usd")
+  status                String    // created | authorized | captured | transferred | failed | refunded
+  capturedAt            DateTime?
+  transferredAt         DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }

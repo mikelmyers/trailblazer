@@ -42,6 +42,8 @@ interface JobDetail {
   pickedUpAt: string | null;
   deliveredAt: string | null;
   cancelledAt: string | null;
+  priceCents: number | null;
+  paymentStatus: string | null;
   driver: DriverInfo | null;
   estimatedRoute: {
     distance: number;
@@ -373,6 +375,47 @@ export default function JobDetailPage() {
                 <p className="text-sm text-text-secondary">
                   {job.specialInstructions}
                 </p>
+              </div>
+            )}
+
+            {/* Price & Payment */}
+            {job.priceCents != null && job.priceCents > 0 && (
+              <div className="mt-6 pt-4 border-t border-border">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-text-muted mb-3">
+                  Payment
+                </p>
+                <div className="flex items-center gap-6">
+                  <div>
+                    <p className="text-xs text-text-muted">Job Price</p>
+                    <p className="font-mono text-h3 font-semibold text-text-primary">
+                      ${(job.priceCents / 100).toFixed(2)}
+                    </p>
+                  </div>
+                  {job.paymentStatus && (
+                    <div>
+                      <p className="text-xs text-text-muted">Status</p>
+                      <Badge
+                        variant={
+                          job.paymentStatus === 'transferred'
+                            ? 'success'
+                            : job.paymentStatus === 'captured'
+                              ? 'info'
+                              : job.paymentStatus === 'authorized'
+                                ? 'warning'
+                                : 'default'
+                        }
+                      >
+                        {job.paymentStatus === 'transferred'
+                          ? 'Paid to Driver'
+                          : job.paymentStatus === 'captured'
+                            ? 'Payment Captured'
+                            : job.paymentStatus === 'authorized'
+                              ? 'Authorized'
+                              : job.paymentStatus.charAt(0).toUpperCase() + job.paymentStatus.slice(1)}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

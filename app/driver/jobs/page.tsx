@@ -19,6 +19,8 @@ interface Job {
   packageSize: string;
   createdAt: string;
   deliveredAt: string | null;
+  priceCents: number | null;
+  driverPayoutCents: number | null;
 }
 
 interface DriverInfo {
@@ -80,6 +82,11 @@ const JobCard: React.FC<{ job: Job; isAvailable?: boolean }> = ({ job, isAvailab
         {/* Header row */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-xs text-text-muted">{job.id}</span>
+          {job.priceCents != null && job.priceCents > 0 && (
+            <span className="font-mono text-sm font-semibold text-success">
+              ${((job.driverPayoutCents ?? job.priceCents) / 100).toFixed(2)}
+            </span>
+          )}
           <Badge variant={statusBadgeVariant[job.status] ?? 'default'}>
             {statusLabel[job.status] ?? job.status}
           </Badge>

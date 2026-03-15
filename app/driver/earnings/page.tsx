@@ -12,6 +12,10 @@ interface DeliveredJob {
   dropoffAddress: string;
   deliveredAt: string;
   createdAt: string;
+  priceCents: number | null;
+  driverPayoutCents: number | null;
+  platformFeeCents: number | null;
+  platformFeePercent: number | null;
 }
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
@@ -28,6 +32,14 @@ function isThisWeek(date: Date): boolean {
 function isThisMonth(date: Date): boolean {
   const now = new Date();
   return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+}
+
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+function sumPayouts(jobs: DeliveredJob[]): number {
+  return jobs.reduce((sum, j) => sum + (j.driverPayoutCents ?? j.priceCents ?? 0), 0);
 }
 
 /* ── Page ─────────────────────────────────────────────────────────────────── */
@@ -56,9 +68,12 @@ export default function DriverEarningsPage() {
 
   /* ── Compute earnings summary ──────────────────────────────────────────── */
 
-  const thisWeekCount = jobs.filter((j) => isThisWeek(new Date(j.deliveredAt))).length;
-  const thisMonthCount = jobs.filter((j) => isThisMonth(new Date(j.deliveredAt))).length;
-  const allTimeCount = jobs.length;
+  const weekJobs = jobs.filter((j) => isThisWeek(new Date(j.deliveredAt)));
+  const monthJobs = jobs.filter((j) => isThisMonth(new Date(j.deliveredAt)));
+
+  const weekEarnings = sumPayouts(weekJobs);
+  const monthEarnings = sumPayouts(monthJobs);
+  const allTimeEarnings = sumPayouts(jobs);
 
   if (loading) {
     return (
@@ -76,42 +91,19 @@ export default function DriverEarningsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatsCard
           label="This Week"
-          value={thisWeekCount}
-          description="Deliveries completed"
+          value={formatCents(weekEarnings)}
+          description={`${weekJobs.length} deliveries`}
         />
         <StatsCard
           label="This Month"
-          value={thisMonthCount}
-          description={new Date().toLocaleString('default', { month: 'long' })}
+          value={formatCents(monthEarnings)}
+          description={`${monthJobs.length} deliveries`}
         />
         <StatsCard
           label="All Time"
-          value={allTimeCount}
-          description="Total deliveries"
+          value={formatCents(allTimeEarnings)}
+          description={`${jobs.length} deliveries`}
         />
-      </div>
-
-      {/* Payment Note */}
-      <div className="flex items-start gap-3 p-4 bg-background-3 rounded-lg border border-border">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="flex-shrink-0 text-text-secondary mt-0.5"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-        <p className="text-sm text-text-secondary">
-          Payments are handled directly between you and the shipper. Trailblazer does not process
-          delivery payments. Earnings shown here reflect completed delivery counts.
-        </p>
       </div>
 
       {/* Job History Table */}
@@ -139,6 +131,9 @@ export default function DriverEarningsPage() {
                   <th className="text-left py-2.5 px-6 text-xs font-medium uppercase tracking-wide-section text-text-secondary">
                     Dropoff
                   </th>
+                  <th className="text-right py-2.5 px-6 text-xs font-medium uppercase tracking-wide-section text-text-secondary">
+                    Payout
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -158,6 +153,13 @@ export default function DriverEarningsPage() {
                     </td>
                     <td className="py-3 px-6 text-text-primary truncate max-w-[200px]">
                       {job.dropoffAddress}
+                    </td>
+                    <td className="py-3 px-6 text-right font-mono font-medium text-success whitespace-nowrap">
+                      {job.driverPayoutCents != null
+                        ? formatCents(job.driverPayoutCents)
+                        : job.priceCents != null
+                          ? formatCents(job.priceCents)
+                          : '—'}
                     </td>
                   </tr>
                 ))}
