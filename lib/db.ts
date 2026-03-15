@@ -3,12 +3,29 @@ import { PrismaPg } from '@prisma/adapter-pg';
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 
-// Supabase-Vercel integration sets POSTGRES_URL / POSTGRES_PRISMA_URL, not DATABASE_URL
-const connectionString =
-  process.env.DATABASE_URL ||
-  process.env.POSTGRES_PRISMA_URL ||
-  process.env.POSTGRES_URL ||
-  process.env.POSTGRES_URL_NON_POOLING;
+// Build connection string from whatever env vars are available.
+// Supabase-Vercel integration sets individual POSTGRES_HOST/PASSWORD/DATABASE vars
+// rather than a single DATABASE_URL.
+function getConnectionString(): string | undefined {
+  if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  if (process.env.POSTGRES_PRISMA_URL) return process.env.POSTGRES_PRISMA_URL;
+  if (process.env.POSTGRES_URL) return process.env.POSTGRES_URL;
+  if (process.env.POSTGRES_URL_NON_POOLING) return process.env.POSTGRES_URL_NON_POOLING;
+
+  // Assemble from individual Supabase-Vercel integration vars
+  const host = process.env.POSTGRES_HOST;
+  const password = process.env.POSTGRES_PASSWORD;
+  const database = process.env.POSTGRES_DATABASE;
+  if (host && password && database) {
+    const user = process.env.POSTGRES_USER || 'postgres';
+    const port = process.env.POSTGRES_PORT || '5432';
+    return `postgresql://${user}:${encodeURIComponent(password)}@${host}:${port}/${database}?sslmode=require`;
+  }
+
+  return undefined;
+}
+
+const connectionString = getConnectionString();
 
 function createPrismaClient(): PrismaClient {
   if (!connectionString) {
