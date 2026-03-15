@@ -51,9 +51,8 @@ export default function SignInPage() {
             ? (res.code || 'Invalid email or password.')
             : (errorMessages[res.error] ?? res.error));
         }
-      } else if (res?.ok) {
-        // If user came from a specific page, send them back there.
-        // Otherwise, redirect based on their role.
+      } else {
+        // Login succeeded — redirect based on role or explicit callback
         if (hasExplicitCallback && callbackUrl) {
           window.location.href = callbackUrl;
         } else {
