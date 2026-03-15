@@ -5,7 +5,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { dispatchMatch, computeDriverPickupRoutes } from '@/lib/primordia';
 import type { JobContext } from '@/lib/primordia';
-import { calculatePlatformFee } from '@/lib/pricing';
+import { calculatePlatformFee, calculateShipperFee } from '@/lib/pricing';
 import { createJobPaymentIntent, cancelJobPayment } from '@/lib/stripe';
 
 /** Stripe manual-capture auth expires after 7 days */
@@ -30,6 +30,7 @@ export async function POST(
 
     const job = await prisma.job.findUnique({
       where: { id: params.id },
+      include: { shipper: { select: { subscriptionTier: true } } },
     });
 
     if (!job) {
@@ -165,12 +166,21 @@ export async function POST(
 
     let feeData: Record<string, unknown> = {};
     if (job.priceCents) {
-      const { platformFeeCents, driverPayoutCents, feePercent } = calculatePlatformFee(
+      // Driver-side platform fee (based on driver subscription tier)
+      const { platformFeeCents: driverFeeCents, driverPayoutCents, feePercent } = calculatePlatformFee(
         job.priceCents,
         driverTier,
       );
+
+      // Shipper-side convenience fee (already baked into the PaymentIntent amount)
+      const shipperTier = job.shipper?.subscriptionTier ?? 'STARTER';
+      const { shipperFeeCents } = calculateShipperFee(job.priceCents, shipperTier);
+
+      // Total platform revenue = driver-side fee + shipper convenience fee
+      const totalPlatformFeeCents = driverFeeCents + shipperFeeCents;
+
       feeData = {
-        platformFeeCents,
+        platformFeeCents: totalPlatformFeeCents,
         driverPayoutCents,
         platformFeePercent: feePercent,
       };
@@ -180,7 +190,7 @@ export async function POST(
         await prisma.payment.updateMany({
           where: { jobId: job.id },
           data: {
-            platformFeeCents,
+            platformFeeCents: totalPlatformFeeCents,
             driverPayoutCents,
           },
         });

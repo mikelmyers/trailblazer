@@ -44,7 +44,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       where: { stripeCustomerId: customerId },
       data: {
         subscriptionId,
-        subscriptionTier: tierInfo.tier as 'STARTER' | 'GROWTH',
+        subscriptionTier: tierInfo.tier as 'CASUAL' | 'STARTER' | 'GROWTH',
         subscriptionStatus: 'active',
       },
     });

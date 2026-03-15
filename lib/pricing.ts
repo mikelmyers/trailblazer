@@ -263,6 +263,36 @@ export function calculatePlatformFee(
   return { platformFeeCents, driverPayoutCents, feePercent };
 }
 
+/* ── Shipper Convenience Fee ──────────────────────────────────────────────── */
+
+/**
+ * Shipper-side convenience fee percentage by shipper tier.
+ * Applied on top of the job price at booking time.
+ * CASUAL tier pays a higher per-job fee in exchange for a lower subscription.
+ */
+export const SHIPPER_FEE_PERCENT: Record<string, number> = {
+  CASUAL: 8,
+  STARTER: 0,
+  GROWTH: 0,
+};
+
+/** Monthly job limits by shipper tier. null = unlimited. */
+export const SHIPPER_JOB_LIMITS: Record<string, number | null> = {
+  CASUAL: 5,
+  STARTER: 50,
+  GROWTH: null,
+};
+
+export function calculateShipperFee(
+  priceCents: number,
+  shipperTier: string,
+): { shipperFeeCents: number; totalChargeCents: number; feePercent: number } {
+  const feePercent = SHIPPER_FEE_PERCENT[shipperTier] ?? 0;
+  const shipperFeeCents = Math.round(priceCents * feePercent / 100);
+  const totalChargeCents = priceCents + shipperFeeCents;
+  return { shipperFeeCents, totalChargeCents, feePercent };
+}
+
 /* ── Formatting Helper ────────────────────────────────────────────────────── */
 
 export function formatCents(cents: number): string {
