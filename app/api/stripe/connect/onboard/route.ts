@@ -42,7 +42,6 @@ export async function POST(request: Request) {
     }
 
     // Generate onboarding link
-    const { url: origin } = new URL(request.url);
     const baseUrl = new URL(request.url).origin;
 
     const accountLink = await createAccountLink(
