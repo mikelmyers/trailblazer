@@ -26,6 +26,19 @@ function getConnectionString(): string | undefined {
   return undefined;
 }
 
+// Strip sslmode from connection string — we handle SSL via the pg.Pool `ssl` option instead.
+// If sslmode is left in, pg parses it and sets ssl=true which enforces cert validation,
+// overriding our { rejectUnauthorized: false } needed for Supabase's self-signed certs.
+function stripSslMode(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.searchParams.delete('sslmode');
+    return parsed.toString();
+  } catch {
+    return url.replace(/[?&]sslmode=[^&]*/g, '');
+  }
+}
+
 const connectionString = getConnectionString();
 
 function createPrismaClient(): PrismaClient {
@@ -50,7 +63,7 @@ function createPrismaClient(): PrismaClient {
     });
   }
   const pool = new pg.Pool({
-    connectionString,
+    connectionString: stripSslMode(connectionString),
     ssl: { rejectUnauthorized: false },
   });
   const adapter = new PrismaPg(pool);
