@@ -10,6 +10,9 @@
     "lint": "next lint",
     "postinstall": "prisma generate"
   },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
+  },
   "repository": {
     "type": "git",
     "url": "http://local_proxy@127.0.0.1:41785/git/mikelmyers/trailblazer"
@@ -49,6 +52,7 @@
     "@types/mapbox-gl": "^3.4.1",
     "@types/uuid": "^10.0.0",
     "eslint": "^9.39.4",
-    "eslint-config-next": "^16.1.6"
+    "eslint-config-next": "^16.1.6",
+    "tsx": "^4.21.0"
   }
 }
