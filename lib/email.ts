@@ -1,6 +1,10 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY!);
+let _resend: Resend | null = null;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY!);
+  return _resend;
+}
 
 const FROM_EMAIL = process.env.EMAIL_FROM || 'Trailblazer <noreply@trailblazer.app>';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -76,7 +80,7 @@ export async function sendVerificationEmail(email: string, token: string): Promi
     </p>
   `;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM_EMAIL,
     to: email,
     subject: 'Verify your email - Trailblazer',
@@ -108,7 +112,7 @@ export async function sendPasswordResetEmail(email: string, token: string): Prom
     </p>
   `;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM_EMAIL,
     to: email,
     subject: 'Reset your password - Trailblazer',
@@ -140,7 +144,7 @@ export async function sendWelcomeEmail(email: string, name: string): Promise<voi
     </table>
   `;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM_EMAIL,
     to: email,
     subject: 'Welcome to Trailblazer!',
@@ -219,7 +223,7 @@ export async function sendJobNotificationEmail(
     </table>
   `;
 
-  await resend.emails.send({
+  await getResend().emails.send({
     from: FROM_EMAIL,
     to: email,
     subject: `Job ${jobDetails.status.replace(/_/g, ' ')} - Trailblazer`,

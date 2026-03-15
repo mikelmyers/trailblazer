@@ -22,6 +22,9 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  experimental: {
+    missingSuspenseWithCSRBailout: false,
+  },
   async headers() {
     return [
       {
