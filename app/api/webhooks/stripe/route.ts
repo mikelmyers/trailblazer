@@ -9,6 +9,7 @@ import Stripe from 'stripe';
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
 
 function getTierFromPriceId(priceId: string): { role: 'DRIVER' | 'SHIPPER'; tier: string } | null {
+  if (PRICE_IDS.DRIVER_FREE && priceId === PRICE_IDS.DRIVER_FREE) return { role: 'DRIVER', tier: 'FREE' };
   if (priceId === PRICE_IDS.DRIVER_STANDARD) return { role: 'DRIVER', tier: 'STANDARD' };
   if (priceId === PRICE_IDS.DRIVER_PRO) return { role: 'DRIVER', tier: 'PRO' };
   if (priceId === PRICE_IDS.SHIPPER_STARTER) return { role: 'SHIPPER', tier: 'STARTER' };
@@ -34,7 +35,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       where: { stripeCustomerId: customerId },
       data: {
         subscriptionId,
-        subscriptionTier: tierInfo.tier as 'STANDARD' | 'PRO',
+        subscriptionTier: tierInfo.tier as 'FREE' | 'STANDARD' | 'PRO',
         subscriptionStatus: 'active',
       },
     });
@@ -164,6 +165,26 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
   }
 }
 
+async function handleAccountUpdated(account: Stripe.Account) {
+  if (!account.id) return;
+
+  const isOnboarded =
+    account.charges_enabled && account.payouts_enabled && account.details_submitted;
+
+  if (isOnboarded) {
+    const driver = await prisma.driver.findUnique({
+      where: { stripeConnectAccountId: account.id },
+    });
+
+    if (driver && !driver.stripeConnectOnboarded) {
+      await prisma.driver.update({
+        where: { id: driver.id },
+        data: { stripeConnectOnboarded: true },
+      });
+    }
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.text();
@@ -197,6 +218,10 @@ export async function POST(request: Request) {
 
       case 'invoice.payment_failed':
         await handlePaymentFailed(event.data.object as Stripe.Invoice);
+        break;
+
+      case 'account.updated':
+        await handleAccountUpdated(event.data.object as Stripe.Account);
         break;
 
       default:

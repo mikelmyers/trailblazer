@@ -137,7 +137,7 @@ export default function PublicLayout({
 
           <div className="mt-16 pt-8 border-t border-white/10">
             <p className="text-xs text-white/30">
-              &copy; 2024 Primordia Systems. All rights reserved.
+              &copy; 2026 Primordia Systems. All rights reserved.
             </p>
           </div>
         </div>

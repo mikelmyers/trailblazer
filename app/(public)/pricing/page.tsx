@@ -1,5 +1,6 @@
-import Link from "next/link";
 import type { Metadata } from "next";
+import Link from "next/link";
+import TierCalculator from "./tier-calculator";
 
 export const metadata: Metadata = {
   title: "Pricing — Trailblazer",
@@ -9,41 +10,56 @@ export const metadata: Metadata = {
 
 interface Plan {
   name: string;
-  price: number;
+  price: number | string;
   interval: string;
   description: string;
   features: string[];
   recommended?: boolean;
+  badge?: string;
 }
 
 const driverPlans: Plan[] = [
   {
-    name: "Driver Standard",
-    price: 79,
-    interval: "/mo",
-    description: "Everything you need to start earning on the network.",
+    name: "Driver Free",
+    price: 0,
+    interval: "",
+    description: "Start earning with zero monthly commitment.",
+    badge: "No credit card required",
     features: [
       "Listed in dispatch network",
       "Real-time job notifications",
       "Basic earnings dashboard",
+      "12% platform fee per completed job",
       "Weekly direct deposit payouts",
+    ],
+  },
+  {
+    name: "Driver Standard",
+    price: 49,
+    interval: "/mo",
+    description: "Lower fees for drivers with consistent volume.",
+    features: [
+      "Everything in Free",
+      "6% platform fee per completed job",
+      "Advanced earnings dashboard",
       "In-app navigation",
+      "Fee pays for itself at 9+ jobs/month",
     ],
   },
   {
     name: "Driver Pro",
-    price: 149,
+    price: 99,
     interval: "/mo",
-    description: "Priority access and deeper insights to maximize your earnings.",
-    features: [
-      "Priority dispatch weighting",
-      "Advanced earnings analytics",
-      "Performance insights and scoring",
-      "Early access to premium routes",
-      "Dedicated driver support line",
-      "Monthly performance reports",
-    ],
+    description: "Zero platform fees and priority access for full-time drivers.",
     recommended: true,
+    features: [
+      "Everything in Standard",
+      "0% platform fee",
+      "Priority dispatch weighting",
+      "Performance insights and scoring",
+      "Dedicated driver support line",
+      "Breaks even vs Standard at 14+ jobs/month",
+    ],
   },
 ];
 
@@ -97,7 +113,12 @@ const faqs = [
   {
     question: "Do drivers pay per delivery?",
     answer:
-      "No. Your monthly subscription covers access to the dispatch network and all platform features. There are no per-delivery fees, commissions, or hidden charges on the driver side.",
+      "It depends on your plan. Free tier drivers pay a 12% platform fee per completed job — no monthly commitment. Standard tier reduces that to 6% with a $49/month subscription. Pro tier eliminates all per-job fees for $99/month. The calculator above shows exactly which plan saves you the most based on your delivery volume.",
+  },
+  {
+    question: "Can I start on the Free tier and upgrade later?",
+    answer:
+      "Yes. All drivers start on Free by default — no credit card required. You can upgrade to Standard or Pro at any time from your account dashboard. Upgrades take effect immediately.",
   },
   {
     question: "What happens if I exceed 50 jobs on the Shipper Starter plan?",
@@ -112,6 +133,9 @@ const faqs = [
 ];
 
 function PlanCard({ plan }: { plan: Plan }) {
+  const displayPrice = typeof plan.price === "number" && plan.price === 0 ? "Free" : `$${plan.price}`;
+  const showInterval = typeof plan.price === "number" && plan.price > 0;
+
   return (
     <div
       className={`relative border rounded p-8 bg-background flex flex-col ${
@@ -128,9 +152,15 @@ function PlanCard({ plan }: { plan: Plan }) {
       <p className="mt-2 text-sm text-text-secondary">{plan.description}</p>
 
       <div className="mt-6 flex items-baseline gap-1">
-        <span className="font-mono text-h1">${plan.price}</span>
-        <span className="text-sm text-text-muted">{plan.interval}</span>
+        <span className="font-mono text-h1">{displayPrice}</span>
+        {showInterval && (
+          <span className="text-sm text-text-muted">{plan.interval}</span>
+        )}
       </div>
+
+      {plan.badge && (
+        <p className="mt-2 text-xs text-text-muted">{plan.badge}</p>
+      )}
 
       <ul className="mt-8 space-y-3 flex-1">
         {plan.features.map((feature) => (
@@ -176,7 +206,7 @@ export default function PricingPage() {
             Simple, transparent pricing
           </h1>
           <p className="mt-6 text-body-lg text-text-secondary max-w-lg">
-            No hidden fees, no per-delivery commissions, no long-term contracts.
+            No hidden fees, no long-term contracts.
             Pick the plan that fits how you operate.
           </p>
         </div>
@@ -196,10 +226,15 @@ export default function PricingPage() {
             location, availability, and performance history.
           </p>
 
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
             {driverPlans.map((plan) => (
               <PlanCard key={plan.name} plan={plan} />
             ))}
+          </div>
+
+          {/* Tier Calculator */}
+          <div className="mt-16">
+            <TierCalculator />
           </div>
         </div>
       </section>

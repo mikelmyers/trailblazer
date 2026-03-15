@@ -8,7 +8,7 @@ import { Select } from '@/components/ui/select';
 
 /* ── Constants ────────────────────────────────────────────────────────────── */
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 7;
 
 const VEHICLE_TYPES = ['BIKE', 'CAR', 'VAN', 'TRUCK', 'CARGO_VAN'];
 
@@ -37,31 +37,42 @@ const METRO_AREAS = [
 
 const PLAN_OPTIONS = [
   {
+    tier: 'FREE' as const,
+    name: 'Free',
+    price: '$0',
+    period: '',
+    features: [
+      'Listed in dispatch network',
+      'Real-time job notifications',
+      'Basic earnings dashboard',
+      '12% platform fee per completed job',
+      'No credit card required',
+    ],
+  },
+  {
     tier: 'STANDARD' as const,
     name: 'Standard',
-    price: '$79',
+    price: '$49',
     period: '/mo',
     features: [
-      'Unlimited job matching',
-      'Basic route optimization',
-      'Standard support (email)',
-      'Earnings dashboard',
-      'Job history & analytics',
+      'Everything in Free',
+      '6% platform fee per completed job',
+      'Advanced earnings dashboard',
+      'In-app navigation',
+      'Fee pays for itself at 9+ jobs/month',
     ],
   },
   {
     tier: 'PRO' as const,
     name: 'Pro',
-    price: '$149',
+    price: '$99',
     period: '/mo',
     features: [
       'Everything in Standard',
-      'Priority job matching',
-      'Advanced route optimization',
-      'Priority support (phone & email)',
-      'Real-time earnings analytics',
-      'Multi-vehicle management',
-      'Dedicated account manager',
+      '0% platform fee',
+      'Priority dispatch weighting',
+      'Performance insights and scoring',
+      'Dedicated driver support line',
     ],
   },
 ];
@@ -106,10 +117,12 @@ export default function DriverOnboardingPage() {
   const [step, setStep] = useState(1);
   const [vehicleType, setVehicleType] = useState('CAR');
   const [serviceAreas, setServiceAreas] = useState<string[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<'STANDARD' | 'PRO'>('STANDARD');
+  const [selectedPlan, setSelectedPlan] = useState<'FREE' | 'STANDARD' | 'PRO'>('FREE');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsAcceptedAt, setTermsAcceptedAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectStatus, setConnectStatus] = useState<'pending' | 'complete'>('pending');
 
   const canAdvance = (): boolean => {
     switch (step) {
@@ -124,6 +137,8 @@ export default function DriverOnboardingPage() {
       case 5:
         return termsAccepted;
       case 6:
+        return connectStatus === 'complete';
+      case 7:
         return true;
       default:
         return false;
@@ -439,9 +454,9 @@ export default function DriverOnboardingPage() {
                     all packages with reasonable care and deliver them in a timely manner.
                   </p>
                   <p>
-                    Payments for deliveries are handled directly between you and the shipper.
-                    Trailblazer charges a monthly subscription fee for access to the platform, which
-                    is billed through Stripe.
+                    Shippers pay the platform for each delivery. Trailblazer deducts a platform fee
+                    based on your subscription tier (Free: 12%, Standard: 6%, Pro: 0%) and transfers
+                    the remaining payout to your connected bank account via Stripe.
                   </p>
                   <p>
                     You agree to maintain a professional standard of conduct while representing
@@ -476,8 +491,85 @@ export default function DriverOnboardingPage() {
             </div>
           )}
 
-          {/* ── Step 6: Ready ────────────────────────────────────────────── */}
+          {/* ── Step 6: Stripe Connect (Payout Setup) ────────────────── */}
           {step === 6 && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-h3 font-semibold tracking-tight-h3 text-text-primary mb-1">
+                  Set Up Payouts
+                </h2>
+                <p className="text-sm text-text-secondary">
+                  Link your bank account to receive delivery payouts. Powered by Stripe.
+                </p>
+              </div>
+
+              {connectStatus === 'complete' ? (
+                <div className="flex items-center gap-3 p-4 bg-success/5 border border-success/20 rounded-lg">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-success">
+                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
+                  <span className="text-sm font-medium text-success">Payout account connected</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-background-3 rounded-lg p-4 border border-border">
+                    <ul className="text-sm text-text-secondary space-y-2">
+                      <li className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-accent/10 text-accent flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</span>
+                        <span>Click the button below to open Stripe</span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-accent/10 text-accent flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
+                        <span>Enter your bank account or debit card details</span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-accent/10 text-accent flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</span>
+                        <span>Return here to continue onboarding</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <Button
+                    onClick={async () => {
+                      setConnectLoading(true);
+                      try {
+                        const res = await fetch('/api/stripe/connect/onboard', { method: 'POST' });
+                        if (res.ok) {
+                          const data = await res.json();
+                          if (data.url) {
+                            window.location.href = data.url;
+                          }
+                        }
+                      } catch {
+                        // Silent fail
+                      } finally {
+                        setConnectLoading(false);
+                      }
+                    }}
+                    disabled={connectLoading}
+                    className="w-full"
+                  >
+                    {connectLoading ? (
+                      <span className="flex items-center gap-2">
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                        Connecting...
+                      </span>
+                    ) : (
+                      'Connect Bank Account'
+                    )}
+                  </Button>
+
+                  <p className="text-xs text-text-muted text-center">
+                    Payout setup is required to receive delivery payments. You can update your bank details later from your profile.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Step 7: Ready ────────────────────────────────────────────── */}
+          {step === 7 && (
             <div className="space-y-6">
               <div className="text-center py-2">
                 <svg

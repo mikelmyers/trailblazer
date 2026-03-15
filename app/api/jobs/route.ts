@@ -5,6 +5,8 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { createJobSchema, jobQuerySchema } from '@/lib/validations/job';
 import { optimizeRoute } from '@/lib/primordia';
+import { calculateSuggestedPrice } from '@/lib/pricing';
+import { createJobPaymentIntent } from '@/lib/stripe';
 
 export async function GET(request: Request) {
   try {
@@ -141,6 +143,7 @@ export async function POST(request: Request) {
       description,
       packageSize,
       urgency,
+      priceCents,
     } = parsed.data;
 
     const estimatedRoute = await optimizeRoute(
@@ -149,6 +152,40 @@ export async function POST(request: Request) {
       dropoffLat,
       dropoffLng
     );
+
+    // Calculate suggested price for analytics
+    const priceSuggestion = calculateSuggestedPrice({
+      distanceKm: estimatedRoute.distance,
+      durationMin: estimatedRoute.duration,
+      packageSize,
+      urgency,
+      pickupLat,
+      pickupLng,
+      dropoffLat,
+      dropoffLng,
+    });
+
+    // Create Stripe PaymentIntent (authorize only, capture on delivery)
+    let paymentIntentId: string | null = null;
+    let paymentStatus: string = 'pending';
+
+    if (shipper.stripeCustomerId) {
+      try {
+        const pi = await createJobPaymentIntent(
+          shipper.stripeCustomerId,
+          priceCents,
+          `job_${Date.now()}`,
+        );
+        paymentIntentId = pi.id;
+        paymentStatus = 'authorized';
+      } catch (err) {
+        console.error('Payment authorization failed:', err);
+        return NextResponse.json(
+          { error: 'Payment authorization failed. Please check your payment method.' },
+          { status: 402 },
+        );
+      }
+    }
 
     const job = await prisma.// eslint-disable-next-line @typescript-eslint/no-explicit-any
     $transaction(async (tx: any) => {
@@ -166,8 +203,27 @@ export async function POST(request: Request) {
           packageSize,
           urgency,
           estimatedRoute: estimatedRoute as unknown as Record<string, unknown>,
+          priceCents,
+          suggestedPriceCents: priceSuggestion.suggestedPriceCents,
+          pricingBreakdown: priceSuggestion.breakdown as unknown as Record<string, unknown>,
+          paymentIntentId,
+          paymentStatus,
         },
       });
+
+      // Create Payment record if PaymentIntent was created
+      if (paymentIntentId) {
+        await tx.payment.create({
+          data: {
+            jobId: createdJob.id,
+            stripePaymentIntentId: paymentIntentId,
+            amountCents: priceCents,
+            platformFeeCents: 0, // calculated at match time
+            driverPayoutCents: 0, // calculated at match time
+            status: 'authorized',
+          },
+        });
+      }
 
       await tx.shipper.update({
         where: { id: shipper.id },

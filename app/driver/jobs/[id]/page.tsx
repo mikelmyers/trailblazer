@@ -26,6 +26,11 @@ interface JobDetail {
   matchedAt: string | null;
   pickedUpAt: string | null;
   deliveredAt: string | null;
+  priceCents: number | null;
+  platformFeeCents: number | null;
+  driverPayoutCents: number | null;
+  platformFeePercent: number | null;
+  paymentStatus: string | null;
   estimatedRoute: {
     distance: number;
     duration: number;
@@ -242,6 +247,36 @@ export default function DriverJobDetailPage() {
           </div>
           <span className="text-[10px] text-text-muted tracking-wide-label uppercase ml-auto">Route by Terra</span>
         </div>
+      )}
+
+      {/* Payout Breakdown */}
+      {job.priceCents != null && job.priceCents > 0 && (
+        <Card>
+          <p className="section-label">Payout</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-text-secondary">Job Price</span>
+              <span className="font-mono text-sm text-text-primary">${(job.priceCents / 100).toFixed(2)}</span>
+            </div>
+            {job.platformFeeCents != null && job.platformFeePercent != null && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-text-secondary">Platform Fee ({job.platformFeePercent}%)</span>
+                <span className="font-mono text-sm text-text-muted">-${(job.platformFeeCents / 100).toFixed(2)}</span>
+              </div>
+            )}
+            {job.driverPayoutCents != null && (
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <span className="text-sm font-medium text-text-primary">Your Payout</span>
+                <span className="font-mono text-h3 font-bold text-success">${(job.driverPayoutCents / 100).toFixed(2)}</span>
+              </div>
+            )}
+            {job.paymentStatus && (
+              <p className="text-xs text-text-muted mt-1 capitalize">
+                Payment: {job.paymentStatus}
+              </p>
+            )}
+          </div>
+        </Card>
       )}
 
       {/* Status Timeline */}

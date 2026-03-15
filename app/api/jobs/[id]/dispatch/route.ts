@@ -5,6 +5,11 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 import { dispatchMatch, computeDriverPickupRoutes } from '@/lib/primordia';
 import type { JobContext } from '@/lib/primordia';
+import { calculatePlatformFee } from '@/lib/pricing';
+import { createJobPaymentIntent, cancelJobPayment } from '@/lib/stripe';
+
+/** Stripe manual-capture auth expires after 7 days */
+const AUTH_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function POST(
   request: Request,
@@ -38,6 +43,50 @@ export async function POST(
       );
     }
 
+    // Check for stale payment authorization (>7 days) and re-authorize
+    if (job.paymentIntentId && job.paymentStatus === 'authorized' && job.priceCents) {
+      const jobAge = Date.now() - new Date(job.createdAt).getTime();
+      if (jobAge > AUTH_EXPIRY_MS) {
+        const shipper = await prisma.shipper.findUnique({
+          where: { id: job.shipperId },
+          select: { stripeCustomerId: true },
+        });
+
+        if (shipper?.stripeCustomerId) {
+          try {
+            // Cancel the expired authorization
+            await cancelJobPayment(job.paymentIntentId);
+
+            // Create a new authorization
+            const newPi = await createJobPaymentIntent(
+              shipper.stripeCustomerId,
+              job.priceCents,
+              `job_reauth_${job.id}`,
+            );
+
+            await prisma.job.update({
+              where: { id: job.id },
+              data: { paymentIntentId: newPi.id, paymentStatus: 'authorized' },
+            });
+
+            await prisma.payment.updateMany({
+              where: { jobId: job.id },
+              data: { stripePaymentIntentId: newPi.id, status: 'authorized' },
+            });
+
+            // Update local reference for downstream use
+            job.paymentIntentId = newPi.id;
+          } catch (reAuthError) {
+            console.error('Re-authorization failed:', reAuthError);
+            return NextResponse.json(
+              { error: 'Payment re-authorization failed. The shipper may need to update their payment method.' },
+              { status: 402 },
+            );
+          }
+        }
+      }
+    }
+
     // Transition to MATCHING
     await prisma.job.update({
       where: { id: params.id },
@@ -45,12 +94,17 @@ export async function POST(
     });
 
     // Query all available drivers with full context
+    // Prefer drivers with Connect onboarding complete, but also include
+    // legacy drivers with active subscriptions (they can set up Connect later)
     const availableDrivers = await prisma.driver.findMany({
       where: {
         isAvailable: true,
         currentLat: { not: null },
         currentLng: { not: null },
-        subscriptionStatus: 'active',
+        OR: [
+          { stripeConnectOnboarded: true },
+          { subscriptionStatus: 'active' },
+        ],
       },
       include: {
         user: { select: { name: true } },
@@ -105,12 +159,41 @@ export async function POST(
 
     const matchResult = await dispatchMatch(jobContext, enrichedCandidates);
 
-    // Step 3: Persist match result
+    // Step 3: Calculate platform fee based on matched driver's tier
+    const matchedDriver = availableDrivers.find((d: typeof availableDrivers[number]) => d.id === matchResult.driverId);
+    const driverTier = matchedDriver?.subscriptionTier ?? 'FREE';
+
+    let feeData: Record<string, unknown> = {};
+    if (job.priceCents) {
+      const { platformFeeCents, driverPayoutCents, feePercent } = calculatePlatformFee(
+        job.priceCents,
+        driverTier,
+      );
+      feeData = {
+        platformFeeCents,
+        driverPayoutCents,
+        platformFeePercent: feePercent,
+      };
+
+      // Update Payment record with fee breakdown
+      if (job.paymentIntentId) {
+        await prisma.payment.updateMany({
+          where: { jobId: job.id },
+          data: {
+            platformFeeCents,
+            driverPayoutCents,
+          },
+        });
+      }
+    }
+
+    // Step 4: Persist match result
     const updatedJob = await prisma.job.update({
       where: { id: params.id },
       data: {
         status: 'MATCHED',
         driverId: matchResult.driverId,
+        ...feeData,
         dispatchMatch: {
           driverId: matchResult.driverId,
           driverName: matchResult.driverName,
