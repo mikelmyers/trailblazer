@@ -1,7 +1,20 @@
 import Stripe from 'stripe';
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-02-25.clover',
+let _stripe: Stripe | null = null;
+export function getStripe() {
+  if (!_stripe) {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2026-02-25.clover',
+    });
+  }
+  return _stripe;
+}
+
+/** @deprecated Use getStripe() instead — kept for compatibility */
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getStripe(), prop, receiver);
+  },
 });
 
 export const PRICE_IDS = {
@@ -17,7 +30,7 @@ export async function createCheckoutSession(
   successUrl: string,
   cancelUrl: string
 ) {
-  return stripe.checkout.sessions.create(
+  return getStripe().checkout.sessions.create(
     {
       customer: customerId,
       payment_method_types: ['card'],
@@ -34,7 +47,7 @@ export async function createCustomerPortalSession(
   customerId: string,
   returnUrl: string
 ) {
-  return stripe.billingPortal.sessions.create({
+  return getStripe().billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
   });
