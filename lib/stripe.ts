@@ -18,6 +18,7 @@ export const stripe = new Proxy({} as Stripe, {
 });
 
 export const PRICE_IDS = {
+  DRIVER_FREE: process.env.STRIPE_DRIVER_FREE_PRICE_ID ?? '',
   DRIVER_STANDARD: process.env.STRIPE_DRIVER_STANDARD_PRICE_ID!,
   DRIVER_PRO: process.env.STRIPE_DRIVER_PRO_PRICE_ID!,
   SHIPPER_STARTER: process.env.STRIPE_SHIPPER_STARTER_PRICE_ID!,

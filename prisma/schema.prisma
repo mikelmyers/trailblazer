@@ -15,6 +15,7 @@ enum Role {
 }
 
 enum DriverTier {
+  FREE
   STANDARD
   PRO
 }
@@ -136,7 +137,7 @@ model Driver {
   lastLocationAt     DateTime?
   stripeCustomerId   String?     @unique
   subscriptionId     String?     @unique
-  subscriptionTier   DriverTier  @default(STANDARD)
+  subscriptionTier   DriverTier  @default(FREE)
   subscriptionStatus String?
   rating             Float       @default(5.0)
   totalJobs          Int         @default(0)

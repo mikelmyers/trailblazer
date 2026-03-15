@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 /* ── Types ────────────────────────────────────────────────────────────────── */
 
 interface SubscriptionInfo {
-  plan: 'STANDARD' | 'PRO' | null;
+  plan: 'FREE' | 'STANDARD' | 'PRO' | null;
   status: 'ACTIVE' | 'PAST_DUE' | 'CANCELLED' | 'TRIALING' | null;
   currentPeriodEnd: string | null;
 }
@@ -16,7 +16,7 @@ interface SubscriptionInfo {
 /* ── Constants ────────────────────────────────────────────────────────────── */
 
 interface PlanDef {
-  id: 'STANDARD' | 'PRO';
+  id: 'FREE' | 'STANDARD' | 'PRO';
   name: string;
   price: string;
   period: string;
@@ -25,31 +25,42 @@ interface PlanDef {
 
 const PLANS: PlanDef[] = [
   {
+    id: 'FREE',
+    name: 'Free',
+    price: '$0',
+    period: '',
+    features: [
+      'Listed in dispatch network',
+      'Real-time job notifications',
+      'Basic earnings dashboard',
+      '12% platform fee per completed job',
+      'No credit card required',
+    ],
+  },
+  {
     id: 'STANDARD',
     name: 'Standard',
-    price: '$79',
+    price: '$49',
     period: '/mo',
     features: [
-      'Unlimited job matching',
-      'Basic route optimization',
-      'Standard support (email)',
-      'Earnings dashboard',
-      'Job history & analytics',
+      'Everything in Free',
+      '6% platform fee per completed job',
+      'Advanced earnings dashboard',
+      'In-app navigation',
+      'Fee pays for itself at 9+ jobs/month',
     ],
   },
   {
     id: 'PRO',
     name: 'Pro',
-    price: '$149',
+    price: '$99',
     period: '/mo',
     features: [
       'Everything in Standard',
-      'Priority job matching',
-      'Advanced route optimization',
-      'Priority support (phone & email)',
-      'Real-time earnings analytics',
-      'Multi-vehicle management',
-      'Dedicated account manager',
+      '0% platform fee',
+      'Priority dispatch weighting',
+      'Performance insights and scoring',
+      'Dedicated driver support line',
     ],
   },
 ];

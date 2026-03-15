@@ -37,31 +37,42 @@ const METRO_AREAS = [
 
 const PLAN_OPTIONS = [
   {
+    tier: 'FREE' as const,
+    name: 'Free',
+    price: '$0',
+    period: '',
+    features: [
+      'Listed in dispatch network',
+      'Real-time job notifications',
+      'Basic earnings dashboard',
+      '12% platform fee per completed job',
+      'No credit card required',
+    ],
+  },
+  {
     tier: 'STANDARD' as const,
     name: 'Standard',
-    price: '$79',
+    price: '$49',
     period: '/mo',
     features: [
-      'Unlimited job matching',
-      'Basic route optimization',
-      'Standard support (email)',
-      'Earnings dashboard',
-      'Job history & analytics',
+      'Everything in Free',
+      '6% platform fee per completed job',
+      'Advanced earnings dashboard',
+      'In-app navigation',
+      'Fee pays for itself at 9+ jobs/month',
     ],
   },
   {
     tier: 'PRO' as const,
     name: 'Pro',
-    price: '$149',
+    price: '$99',
     period: '/mo',
     features: [
       'Everything in Standard',
-      'Priority job matching',
-      'Advanced route optimization',
-      'Priority support (phone & email)',
-      'Real-time earnings analytics',
-      'Multi-vehicle management',
-      'Dedicated account manager',
+      '0% platform fee',
+      'Priority dispatch weighting',
+      'Performance insights and scoring',
+      'Dedicated driver support line',
     ],
   },
 ];
@@ -106,7 +117,7 @@ export default function DriverOnboardingPage() {
   const [step, setStep] = useState(1);
   const [vehicleType, setVehicleType] = useState('CAR');
   const [serviceAreas, setServiceAreas] = useState<string[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<'STANDARD' | 'PRO'>('STANDARD');
+  const [selectedPlan, setSelectedPlan] = useState<'FREE' | 'STANDARD' | 'PRO'>('FREE');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsAcceptedAt, setTermsAcceptedAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);

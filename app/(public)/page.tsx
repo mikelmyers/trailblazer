@@ -65,35 +65,35 @@ const capabilities = [
 
 const stats = [
   {
-    value: "50",
-    suffix: " states",
-    label: "Nationwide coverage",
+    value: "Nationwide",
+    suffix: "",
+    label: "Built for every corridor",
     description: "Operational across all major metropolitan and rural corridors",
   },
   {
     value: "<1",
     suffix: "s",
-    label: "Sub-second matching",
+    label: "Dispatch architecture",
     description: "Average time from job post to driver assignment",
   },
   {
     value: "99.9",
     suffix: "%",
-    label: "Platform uptime",
+    label: "Uptime target",
     description: "Enterprise-grade reliability backed by redundant infrastructure",
   },
   {
-    value: "4.9",
-    suffix: "/5",
-    label: "Driver satisfaction",
-    description: "Consistently rated by drivers as the fairest dispatch network",
+    value: "3",
+    suffix: " tiers",
+    label: "Plans that match how you operate",
+    description: "Free, Standard, and Pro — pick the tier that fits your volume",
   },
 ];
 
 const pricingPreview = [
   {
     role: "Drivers",
-    description: "Plans starting at $79/mo with priority dispatch upgrades available.",
+    description: "Start free with a 12% platform fee, or subscribe from $49/mo to reduce or eliminate fees entirely.",
     cta: "View driver plans",
   },
   {
@@ -131,6 +131,9 @@ export default function LandingPage() {
               Ship with Trailblazer
             </Link>
           </div>
+          <p className="mt-6 text-sm text-text-muted max-w-md">
+            Now onboarding founding drivers and shippers. Limited spots in launch markets.
+          </p>
         </div>
       </section>
 

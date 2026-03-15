@@ -9,6 +9,7 @@ import Stripe from 'stripe';
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
 
 function getTierFromPriceId(priceId: string): { role: 'DRIVER' | 'SHIPPER'; tier: string } | null {
+  if (PRICE_IDS.DRIVER_FREE && priceId === PRICE_IDS.DRIVER_FREE) return { role: 'DRIVER', tier: 'FREE' };
   if (priceId === PRICE_IDS.DRIVER_STANDARD) return { role: 'DRIVER', tier: 'STANDARD' };
   if (priceId === PRICE_IDS.DRIVER_PRO) return { role: 'DRIVER', tier: 'PRO' };
   if (priceId === PRICE_IDS.SHIPPER_STARTER) return { role: 'SHIPPER', tier: 'STARTER' };
@@ -34,7 +35,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
       where: { stripeCustomerId: customerId },
       data: {
         subscriptionId,
-        subscriptionTier: tierInfo.tier as 'STANDARD' | 'PRO',
+        subscriptionTier: tierInfo.tier as 'FREE' | 'STANDARD' | 'PRO',
         subscriptionStatus: 'active',
       },
     });
