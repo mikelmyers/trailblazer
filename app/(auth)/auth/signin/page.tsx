@@ -40,23 +40,27 @@ export default function SignInPage() {
         callbackUrl,
         redirect: false,
       });
+
+      // Debug: log the full response (check browser console)
+      console.log('signIn response:', JSON.stringify(res, null, 2));
+
       if (res?.error) {
         // NextAuth v5 returns the authorize() error message in res.error when it's a CredentialsSignin,
         // or the error code for other error types.
         if (res.code && res.code !== 'credentials') {
           setError(errorMessages[res.code] ?? errorMessages.Default);
         } else {
-          // Extract custom error message from authorize() throw
           setError(res.error === 'CredentialsSignin'
             ? (res.code || 'Invalid email or password.')
             : (errorMessages[res.error] ?? res.error));
         }
-      } else if (res?.ok) {
-        // Login succeeded — redirect based on role or explicit callback
+      } else {
+        // No error — login succeeded. Redirect based on role.
         if (explicitCallback) {
-          window.location.href = res.url ?? explicitCallback;
+          window.location.href = res?.url ?? explicitCallback;
         } else {
           const session = await getSession();
+          console.log('session after login:', JSON.stringify(session, null, 2));
           const role = (session?.user as any)?.role;
           const roleRedirects: Record<string, string> = {
             ADMIN: '/admin',
