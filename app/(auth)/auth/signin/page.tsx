@@ -3,13 +3,14 @@
 import React, { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 
 type AuthMethod = 'credentials' | 'magic-link' | 'google';
 
 export default function SignInPage() {
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get('callbackUrl') ?? '/';
+  const callbackUrl = searchParams.get('callbackUrl') ?? '';
+  const hasExplicitCallback = !!searchParams.get('callbackUrl');
   const urlError = searchParams.get('error');
 
   const [method, setMethod] = useState<AuthMethod>('credentials');
@@ -50,8 +51,21 @@ export default function SignInPage() {
             ? (res.code || 'Invalid email or password.')
             : (errorMessages[res.error] ?? res.error));
         }
-      } else if (res?.url) {
-        window.location.href = res.url;
+      } else if (res?.ok) {
+        // If user came from a specific page, send them back there.
+        // Otherwise, redirect based on their role.
+        if (hasExplicitCallback && callbackUrl) {
+          window.location.href = callbackUrl;
+        } else {
+          const session = await getSession();
+          const role = (session?.user as any)?.role;
+          const roleRedirects: Record<string, string> = {
+            ADMIN: '/admin',
+            DRIVER: '/driver',
+            SHIPPER: '/shipper',
+          };
+          window.location.href = roleRedirects[role] ?? '/';
+        }
       }
     } catch {
       setError(errorMessages.Default);
