@@ -135,7 +135,7 @@ export async function PATCH(
     }
 
     // Block delivery completion if payment was expected but not authorized
-    if (newStatus === 'DELIVERED' && job.priceCents > 0 && !job.paymentIntentId) {
+    if (newStatus === 'DELIVERED' && (job.priceCents ?? 0) > 0 && !job.paymentIntentId) {
       return NextResponse.json(
         { error: 'Cannot complete delivery: no payment authorization on file.' },
         { status: 402 }
