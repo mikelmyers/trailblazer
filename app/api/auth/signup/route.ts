@@ -6,9 +6,26 @@ import { v4 as uuidv4 } from 'uuid';
 import { prisma } from '@/lib/db';
 import { signUpSchema } from '@/lib/validations/auth';
 import { sendVerificationEmail } from '@/lib/email';
+import { getAuthRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
   try {
+    // Rate limit by IP
+    const forwarded = request.headers.get('x-forwarded-for');
+    const ip = forwarded?.split(',')[0]?.trim() ?? 'unknown';
+    try {
+      const limiter = getAuthRateLimit();
+      const { success } = await limiter.limit(`signup:${ip}`);
+      if (!success) {
+        return NextResponse.json(
+          { error: 'Too many requests. Please try again later.' },
+          { status: 429 }
+        );
+      }
+    } catch {
+      // If rate limiter is unavailable, continue without it
+    }
+
     const body = await request.json();
     const parsed = signUpSchema.safeParse(body);
 
@@ -26,9 +43,10 @@ export async function POST(request: Request) {
     });
 
     if (existingUser) {
+      // Return the same success message to prevent account enumeration
       return NextResponse.json(
-        { error: 'An account with this email already exists.' },
-        { status: 409 }
+        { message: 'Account created. Check your email to verify.' },
+        { status: 201 }
       );
     }
 

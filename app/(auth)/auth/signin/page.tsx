@@ -9,9 +9,12 @@ type AuthMethod = 'credentials' | 'magic-link' | 'google';
 
 export default function SignInPage() {
   const searchParams = useSearchParams();
-  const explicitCallback = searchParams.get('callbackUrl');
+  const rawCallback = searchParams.get('callbackUrl');
+  // Prevent open redirect: only allow relative paths
+  const explicitCallback = rawCallback && rawCallback.startsWith('/') ? rawCallback : null;
   const callbackUrl = explicitCallback ?? '/';
   const urlError = searchParams.get('error');
+  const verified = searchParams.get('verified');
 
   const [method, setMethod] = useState<AuthMethod>('credentials');
   const [email, setEmail] = useState('');
@@ -88,6 +91,12 @@ export default function SignInPage() {
   return (
     <div>
       <h1 className="text-h2 text-center mb-8">Sign in</h1>
+
+      {verified && (
+        <div className="mb-6 rounded-md border border-success/20 bg-success/5 px-4 py-3 text-sm text-success">
+          Email verified successfully. You can now sign in.
+        </div>
+      )}
 
       {displayError && (
         <div className="mb-6 rounded-md border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-danger">
