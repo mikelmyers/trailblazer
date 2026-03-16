@@ -26,8 +26,10 @@ export const authConfig: NextAuthConfig = {
       const publicPaths = ['/', '/pricing', '/about'];
       if (publicPaths.includes(pathname)) return true;
       if (pathname.startsWith('/auth')) return true;
-      if (pathname.startsWith('/api/auth')) return true;
-      if (pathname.startsWith('/api/webhooks')) return true;
+
+      // Let all API routes through — they handle their own auth
+      // and return proper 401/403 JSON responses instead of redirects
+      if (pathname.startsWith('/api/')) return true;
 
       // Everything else requires auth
       return !!auth;
