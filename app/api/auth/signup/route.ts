@@ -52,57 +52,73 @@ export async function POST(request: Request) {
     const passwordHash = await bcrypt.hash(password, 12);
     console.log(`[Signup] Password hashed | elapsed=${Date.now() - startTime}ms`);
 
-    // Step 5: Create user record
-    step = 'create-user';
-    const user = await prisma.user.create({
-      data: {
-        email: email.toLowerCase(),
-        name,
-        passwordHash,
-        role,
-      },
-    });
-    console.log(`[Signup] User created | userId=${user.id} | role=${role} | elapsed=${Date.now() - startTime}ms`);
-
-    // Step 6: Create role-specific profile
-    step = `create-${role.toLowerCase()}-profile`;
-    if (role === 'DRIVER') {
-      const driver = await prisma.driver.create({
-        data: {
-          userId: user.id,
-          vehicleType: 'CAR',
-          serviceAreas: [],
-        },
-      });
-      console.log(`[Signup] Driver profile created | driverId=${driver.id} | userId=${user.id}`);
-    } else if (role === 'SHIPPER') {
-      const shipper = await prisma.shipper.create({
-        data: {
-          userId: user.id,
-          companyName: companyName!,
-        },
-      });
-      console.log(`[Signup] Shipper profile created | shipperId=${shipper.id} | userId=${user.id} | companyName=${companyName}`);
-    }
-
-    // Step 7: Create verification token
-    step = 'create-verification-token';
+    // Step 5: Create user, profile, and verification token in a transaction
+    // This prevents orphaned records if any step fails
+    step = 'database-transaction';
     const token = uuidv4();
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    await prisma.verificationToken.create({
-      data: {
-        identifier: email.toLowerCase(),
-        token,
-        expires,
-      },
-    });
-    console.log(`[Signup] Verification token created | email=${email.toLowerCase()}`);
+    const result = await prisma.$transaction(async (tx) => {
+      // Create user record
+      const user = await tx.user.create({
+        data: {
+          email: email.toLowerCase(),
+          name,
+          passwordHash,
+          role,
+        },
+      });
+      console.log(`[Signup] User created | userId=${user.id} | role=${role} | elapsed=${Date.now() - startTime}ms`);
 
-    // Step 8: Send verification email
+      // Create role-specific profile
+      if (role === 'DRIVER') {
+        const driver = await tx.driver.create({
+          data: {
+            userId: user.id,
+            vehicleType: 'CAR',
+            serviceAreas: [],
+          },
+        });
+        console.log(`[Signup] Driver profile created | driverId=${driver.id} | userId=${user.id}`);
+      } else if (role === 'SHIPPER') {
+        const shipper = await tx.shipper.create({
+          data: {
+            userId: user.id,
+            companyName: companyName || null,
+          },
+        });
+        console.log(`[Signup] Shipper profile created | shipperId=${shipper.id} | userId=${user.id} | companyName=${companyName || '(not provided)'}`);
+      }
+
+      // Create verification token
+      await tx.verificationToken.create({
+        data: {
+          identifier: email.toLowerCase(),
+          token,
+          expires,
+        },
+      });
+      console.log(`[Signup] Verification token created | email=${email.toLowerCase()}`);
+
+      return user;
+    });
+
+    console.log(`[Signup] Transaction committed | userId=${result.id} | elapsed=${Date.now() - startTime}ms`);
+
+    // Step 6: Send verification email (outside transaction — don't roll back the account if email fails)
     step = 'send-verification-email';
-    await sendVerificationEmail(email.toLowerCase(), token);
-    console.log(`[Signup] Verification email sent | email=${email.toLowerCase()} | totalElapsed=${Date.now() - startTime}ms`);
+    try {
+      await sendVerificationEmail(email.toLowerCase(), token);
+      console.log(`[Signup] Verification email sent | email=${email.toLowerCase()} | totalElapsed=${Date.now() - startTime}ms`);
+    } catch (emailError) {
+      // Log the failure but don't fail the signup — user can request a resend
+      console.error(`[Signup] Verification email FAILED | email=${email.toLowerCase()}`);
+      console.error(`[Signup] Email error: ${emailError instanceof Error ? emailError.message : String(emailError)}`);
+      return NextResponse.json(
+        { message: 'Account created, but we could not send the verification email. Please use "Resend verification email" to try again.' },
+        { status: 201 }
+      );
+    }
 
     return NextResponse.json(
       { message: 'Account created. Check your email to verify.' },

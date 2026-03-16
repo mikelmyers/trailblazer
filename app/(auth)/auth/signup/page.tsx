@@ -29,8 +29,7 @@ export default function SignUpPage() {
     email.trim().length > 0 &&
     isPasswordValid(password) &&
     passwordsMatch &&
-    agreedToTerms &&
-    (role !== 'SHIPPER' || companyName.trim().length >= 2);
+    agreedToTerms;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -43,7 +42,7 @@ export default function SignUpPage() {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role, ...(role === 'SHIPPER' && { companyName }) }),
+        body: JSON.stringify({ name, email, password, role, ...(role === 'SHIPPER' && companyName.trim() && { companyName: companyName.trim() }) }),
       });
 
       if (!res.ok) {
@@ -199,12 +198,11 @@ export default function SignUpPage() {
         {role === 'SHIPPER' && (
           <div>
             <label htmlFor="company-name" className="block text-sm font-medium text-text-primary mb-1.5">
-              Company name
+              Company name <span className="font-normal text-text-muted">(optional)</span>
             </label>
             <input
               id="company-name"
               type="text"
-              required
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
               placeholder="Acme Logistics"
