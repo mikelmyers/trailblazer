@@ -14,8 +14,8 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { companyName, selectedTier } = body;
 
-    if (!companyName || !selectedTier) {
-      return NextResponse.json({ error: 'Company name and tier are required.' }, { status: 400 });
+    if (!selectedTier) {
+      return NextResponse.json({ error: 'Subscription tier is required.' }, { status: 400 });
     }
 
     const validTiers = ['CASUAL', 'STARTER', 'GROWTH'];
@@ -23,26 +23,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid tier. Must be CASUAL, STARTER, or GROWTH.' }, { status: 400 });
     }
 
-    if (typeof companyName !== 'string' || companyName.trim().length < 2 || companyName.trim().length > 200) {
-      return NextResponse.json({ error: 'Company name must be between 2 and 200 characters.' }, { status: 400 });
+    if (companyName !== undefined && companyName !== null && companyName !== '') {
+      if (typeof companyName !== 'string' || companyName.trim().length < 2 || companyName.trim().length > 200) {
+        return NextResponse.json({ error: 'Company name must be between 2 and 200 characters.' }, { status: 400 });
+      }
     }
 
-    // Check if shipper profile already exists
+    // Upsert shipper profile — signup creates a bare profile, onboarding fills it in
     const existing = await prisma.shipper.findUnique({
       where: { userId: session.user.id },
     });
 
     if (existing) {
-      return NextResponse.json({ error: 'Shipper profile already exists.' }, { status: 409 });
+      await prisma.shipper.update({
+        where: { userId: session.user.id },
+        data: {
+          ...(companyName && { companyName: companyName.trim() }),
+          subscriptionTier: selectedTier as 'CASUAL' | 'STARTER' | 'GROWTH',
+        },
+      });
+    } else {
+      await prisma.shipper.create({
+        data: {
+          userId: session.user.id,
+          companyName: companyName ? companyName.trim() : null,
+          subscriptionTier: selectedTier as 'CASUAL' | 'STARTER' | 'GROWTH',
+        },
+      });
     }
-
-    await prisma.shipper.create({
-      data: {
-        userId: session.user.id,
-        companyName: companyName.trim(),
-        subscriptionTier: selectedTier as 'CASUAL' | 'STARTER' | 'GROWTH',
-      },
-    });
 
     // Update user role to SHIPPER if not already
     await prisma.user.update({
