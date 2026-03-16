@@ -1,26 +1,45 @@
-import React from 'react';
+'use client';
 
-const REVENUE_CARDS = [
-  { label: 'TODAY', value: '$4,280.00' },
-  { label: 'THIS WEEK', value: '$28,640.00' },
-  { label: 'THIS MONTH', value: '$124,350.00' },
-  { label: 'ALL TIME', value: '$1,847,920.00' },
-];
+import React, { useEffect, useState } from 'react';
 
-const JOB_VOLUME_CARDS = [
-  { label: 'TOTAL JOBS', value: '12,847', color: 'text-text-primary' },
-  { label: 'COMPLETED', value: '11,203', color: 'text-success' },
-  { label: 'ACTIVE', value: '186', color: 'text-accent-blue' },
-  { label: 'FAILED', value: '342', color: 'text-danger' },
-];
-
-const PERFORMANCE_METRICS = [
-  { label: 'AVG DISPATCH TIME', value: '4.2 min', sub: 'from job posted to matched' },
-  { label: 'MATCH CONFIDENCE', value: '94.7%', sub: 'Primordia engine average' },
-  { label: 'ON-TIME RATE', value: '97.3%', sub: 'deliveries within ETA window' },
-];
+interface AnalyticsData {
+  totalDrivers: number;
+  driversOnline: number;
+  activeJobs: number;
+  jobsToday: number;
+  revenueThisMonth: number;
+}
 
 export default function AdminAnalyticsPage() {
+  const [stats, setStats] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        const res = await fetch('/api/admin/stats');
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data);
+        }
+      } catch {
+        // Failed to load analytics
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="h-5 w-5 animate-spin rounded-full border-2 border-border-strong border-t-accent" />
+        <span className="ml-3 text-sm text-text-secondary">Loading analytics...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -29,157 +48,60 @@ export default function AdminAnalyticsPage() {
         <h2 className="text-h3 text-text-primary">Analytics Dashboard</h2>
       </div>
 
-      {/* Revenue cards */}
+      {/* Revenue card */}
       <div>
         <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted mb-2">
           Revenue
         </div>
-        <div className="grid grid-cols-4 gap-4">
-          {REVENUE_CARDS.map((card) => (
-            <div
-              key={card.label}
-              className="rounded-md border border-border bg-white px-4 py-4"
-            >
-              <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
-                {card.label}
-              </div>
-              <div className="mt-2 text-2xl font-semibold tracking-tight-h2 text-text-primary font-mono">
-                {card.value}
-              </div>
+        <div className="grid grid-cols-1 gap-4">
+          <div className="rounded-md border border-border bg-white px-4 py-4">
+            <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
+              THIS MONTH
             </div>
-          ))}
+            <div className="mt-2 text-2xl font-semibold tracking-tight-h2 text-text-primary font-mono">
+              ${stats?.revenueThisMonth?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Job volume cards */}
+      {/* Live stats cards */}
       <div>
         <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted mb-2">
-          Job Volume
+          Live Overview
         </div>
         <div className="grid grid-cols-4 gap-4">
-          {JOB_VOLUME_CARDS.map((card) => (
-            <div
-              key={card.label}
-              className="rounded-md border border-border bg-white px-4 py-4"
-            >
-              <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
-                {card.label}
-              </div>
-              <div
-                className={`mt-2 text-2xl font-semibold tracking-tight-h2 font-mono ${card.color}`}
-              >
-                {card.value}
-              </div>
+          <div className="rounded-md border border-border bg-white px-4 py-4">
+            <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
+              TOTAL DRIVERS
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Performance metrics */}
-      <div>
-        <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted mb-2">
-          Performance
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          {PERFORMANCE_METRICS.map((metric) => (
-            <div
-              key={metric.label}
-              className="rounded-md border border-border bg-white px-4 py-4"
-            >
-              <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
-                {metric.label}
-              </div>
-              <div className="mt-2 text-2xl font-semibold tracking-tight-h2 text-text-primary font-mono">
-                {metric.value}
-              </div>
-              <div className="mt-1 text-[11px] text-text-secondary">
-                {metric.sub}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Chart placeholders */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Job Volume Trend */}
-        <div className="rounded-md border border-border bg-white">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <div>
-              <div className="text-[13px] font-semibold tracking-tight-h3 text-text-primary">
-                Job Volume Trend
-              </div>
-              <div className="text-[11px] text-text-muted">Last 30 days</div>
-            </div>
-            <div className="flex items-center gap-3 text-[10px] text-text-muted">
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-accent-blue" />
-                Posted
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-success" />
-                Completed
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-danger" />
-                Failed
-              </span>
+            <div className="mt-2 text-2xl font-semibold tracking-tight-h2 text-text-primary font-mono">
+              {stats?.totalDrivers?.toLocaleString() ?? '0'}
             </div>
           </div>
-          <div className="flex h-64 items-end justify-between gap-1 px-4 py-6">
-            {Array.from({ length: 30 }).map((_, i) => {
-              const height = 20 + Math.sin(i * 0.5) * 30 + Math.random() * 20;
-              return (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t bg-accent-blue/20"
-                  style={{ height: `${height}%` }}
-                >
-                  <div
-                    className="w-full rounded-t bg-accent-blue"
-                    style={{ height: `${60 + Math.random() * 30}%` }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-          <div className="border-t border-border px-4 py-2 flex items-center justify-between">
-            <span className="font-mono text-[10px] text-text-muted">30d ago</span>
-            <span className="font-mono text-[10px] text-text-muted">Today</span>
-          </div>
-        </div>
-
-        {/* Revenue Trend */}
-        <div className="rounded-md border border-border bg-white">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <div>
-              <div className="text-[13px] font-semibold tracking-tight-h3 text-text-primary">
-                Revenue Trend
-              </div>
-              <div className="text-[11px] text-text-muted">Last 30 days</div>
+          <div className="rounded-md border border-border bg-white px-4 py-4">
+            <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
+              DRIVERS ONLINE
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-text-muted">
-              <span className="flex items-center gap-1">
-                <span className="h-2 w-2 rounded-full bg-success" />
-                Revenue
-              </span>
+            <div className="mt-2 text-2xl font-semibold tracking-tight-h2 text-success font-mono">
+              {stats?.driversOnline?.toLocaleString() ?? '0'}
             </div>
           </div>
-          <div className="flex h-64 items-end justify-between gap-1 px-4 py-6">
-            {Array.from({ length: 30 }).map((_, i) => {
-              const height = 30 + Math.sin(i * 0.3) * 25 + i * 0.8;
-              return (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t bg-success/70"
-                  style={{ height: `${Math.min(height, 95)}%` }}
-                />
-              );
-            })}
+          <div className="rounded-md border border-border bg-white px-4 py-4">
+            <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
+              ACTIVE JOBS
+            </div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight-h2 text-accent-blue font-mono">
+              {stats?.activeJobs?.toLocaleString() ?? '0'}
+            </div>
           </div>
-          <div className="border-t border-border px-4 py-2 flex items-center justify-between">
-            <span className="font-mono text-[10px] text-text-muted">30d ago</span>
-            <span className="font-mono text-[10px] text-text-muted">Today</span>
+          <div className="rounded-md border border-border bg-white px-4 py-4">
+            <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
+              JOBS TODAY
+            </div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight-h2 text-text-primary font-mono">
+              {stats?.jobsToday?.toLocaleString() ?? '0'}
+            </div>
           </div>
         </div>
       </div>
@@ -189,41 +111,10 @@ export default function AdminAnalyticsPage() {
         <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted mb-2">
           Primordia Engine
         </div>
-        <div className="rounded-md border border-border bg-white">
-          <div className="grid grid-cols-4 divide-x divide-border">
-            <div className="px-4 py-4">
-              <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
-                Dispatches Today
-              </div>
-              <div className="mt-2 text-xl font-semibold font-mono text-text-primary">
-                47
-              </div>
-            </div>
-            <div className="px-4 py-4">
-              <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
-                Avg Confidence
-              </div>
-              <div className="mt-2 text-xl font-semibold font-mono text-text-primary">
-                94.7%
-              </div>
-            </div>
-            <div className="px-4 py-4">
-              <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
-                Manual Overrides
-              </div>
-              <div className="mt-2 text-xl font-semibold font-mono text-text-primary">
-                3
-              </div>
-            </div>
-            <div className="px-4 py-4">
-              <div className="text-[10px] font-medium uppercase tracking-wide-label text-text-muted">
-                Override Rate
-              </div>
-              <div className="mt-2 text-xl font-semibold font-mono text-text-primary">
-                6.4%
-              </div>
-            </div>
-          </div>
+        <div className="rounded-md border border-border bg-white px-4 py-6 text-center">
+          <p className="text-sm text-text-secondary">
+            Dispatch analytics will populate as jobs are processed through the Primordia engine.
+          </p>
         </div>
       </div>
     </div>

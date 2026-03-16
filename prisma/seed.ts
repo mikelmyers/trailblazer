@@ -4,12 +4,17 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = 'admin@trailblazer.local';
-  const password = 'Admin123!@#secure';
+  const email = process.env.ADMIN_EMAIL;
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (!email || !password) {
+    console.log('Skipping admin seed: ADMIN_EMAIL and ADMIN_PASSWORD env vars are required.');
+    return;
+  }
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    console.log(`Admin user already exists (${email}), updating role to ADMIN...`);
+    console.log(`Admin user already exists (${email}), ensuring ADMIN role...`);
     await prisma.user.update({
       where: { email },
       data: { role: 'ADMIN' },
@@ -26,14 +31,12 @@ async function main() {
       name: 'Admin',
       role: 'ADMIN',
       passwordHash,
-      emailVerified: new Date(), // skip email verification
+      emailVerified: new Date(),
     },
   });
 
-  console.log('Admin user created:');
-  console.log(`  Email:    ${email}`);
-  console.log(`  Password: ${password}`);
-  console.log('  Change this password after first login.');
+  console.log(`Admin user created: ${email}`);
+  console.log('Change this password after first login.');
 }
 
 main()

@@ -167,70 +167,61 @@ export async function PATCH(
 
         // Capture payment and transfer to driver
         if (job.paymentIntentId && job.paymentStatus === 'authorized') {
-          try {
-            await captureJobPayment(job.paymentIntentId);
+          await captureJobPayment(job.paymentIntentId);
+
+          await tx.job.update({
+            where: { id: job.id },
+            data: { paymentStatus: 'captured' },
+          });
+
+          await tx.payment.updateMany({
+            where: { jobId: job.id },
+            data: { status: 'captured', capturedAt: new Date() },
+          });
+
+          // Transfer payout to driver's Connect account
+          if (
+            job.driver.stripeConnectAccountId &&
+            job.driver.stripeConnectOnboarded &&
+            job.driverPayoutCents &&
+            job.driverPayoutCents > 0
+          ) {
+            const transfer = await transferToDriver(
+              job.driverPayoutCents,
+              job.driver.stripeConnectAccountId,
+              job.id,
+            );
 
             await tx.job.update({
               where: { id: job.id },
-              data: { paymentStatus: 'captured' },
+              data: { paymentStatus: 'transferred', transferId: transfer.id },
             });
 
             await tx.payment.updateMany({
               where: { jobId: job.id },
-              data: { status: 'captured', capturedAt: new Date() },
+              data: {
+                status: 'transferred',
+                stripeTransferId: transfer.id,
+                transferredAt: new Date(),
+              },
             });
-
-            // Transfer payout to driver's Connect account
-            if (
-              job.driver.stripeConnectAccountId &&
-              job.driver.stripeConnectOnboarded &&
-              job.driverPayoutCents &&
-              job.driverPayoutCents > 0
-            ) {
-              const transfer = await transferToDriver(
-                job.driverPayoutCents,
-                job.driver.stripeConnectAccountId,
-                job.id,
-              );
-
-              await tx.job.update({
-                where: { id: job.id },
-                data: { paymentStatus: 'transferred', transferId: transfer.id },
-              });
-
-              await tx.payment.updateMany({
-                where: { jobId: job.id },
-                data: {
-                  status: 'transferred',
-                  stripeTransferId: transfer.id,
-                  transferredAt: new Date(),
-                },
-              });
-            }
-          } catch (paymentError) {
-            console.error('Payment capture/transfer failed:', paymentError);
-            // Delivery is still marked complete — payment issue logged for manual resolution
           }
         }
       }
 
       // Cancel payment on job cancellation
       if (newStatus === 'CANCELLED' && job.paymentIntentId && job.paymentStatus === 'authorized') {
-        try {
-          await cancelJobPayment(job.paymentIntentId);
+        await cancelJobPayment(job.paymentIntentId);
 
-          await tx.job.update({
-            where: { id: job.id },
-            data: { paymentStatus: 'cancelled' },
-          });
+        await tx.job.update({
+          where: { id: job.id },
+          data: { paymentStatus: 'cancelled' },
+        });
 
-          await tx.payment.updateMany({
-            where: { jobId: job.id },
-            data: { status: 'cancelled' },
-          });
-        } catch (cancelError) {
-          console.error('Payment cancellation failed:', cancelError);
-        }
+        await tx.payment.updateMany({
+          where: { jobId: job.id },
+          data: { status: 'cancelled' },
+        });
       }
 
       // Refund payment after delivery (admin-only dispute resolution)
@@ -238,27 +229,23 @@ export async function PATCH(
         if (!isAdmin) {
           throw new Error('Only admins can issue refunds.');
         }
-        try {
-          // Reverse driver transfer first if already transferred
-          if (job.paymentStatus === 'transferred' && job.transferId) {
-            await reverseTransfer(job.transferId);
-          }
-
-          // Refund the shipper
-          await refundJobPayment(job.paymentIntentId);
-
-          await tx.job.update({
-            where: { id: job.id },
-            data: { paymentStatus: 'refunded' },
-          });
-
-          await tx.payment.updateMany({
-            where: { jobId: job.id },
-            data: { status: 'refunded' },
-          });
-        } catch (refundError) {
-          console.error('Refund failed:', refundError);
+        // Reverse driver transfer first if already transferred
+        if (job.paymentStatus === 'transferred' && job.transferId) {
+          await reverseTransfer(job.transferId);
         }
+
+        // Refund the shipper
+        await refundJobPayment(job.paymentIntentId);
+
+        await tx.job.update({
+          where: { id: job.id },
+          data: { paymentStatus: 'refunded' },
+        });
+
+        await tx.payment.updateMany({
+          where: { jobId: job.id },
+          data: { status: 'refunded' },
+        });
       }
 
       return updated;

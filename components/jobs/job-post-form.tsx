@@ -321,7 +321,7 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
             <p className="text-xs text-danger">{errors.pickupCoords}</p>
           )}
           <p className="text-xs text-text-muted">
-            Mapbox geocoding integration coming soon. Enter coordinates manually for now.
+            Enter the address and coordinates for the location.
           </p>
         </div>
       )}
@@ -371,7 +371,7 @@ const JobPostForm: React.FC<JobPostFormProps> = ({
             <p className="text-xs text-danger">{errors.dropoffCoords}</p>
           )}
           <p className="text-xs text-text-muted">
-            Mapbox geocoding integration coming soon. Enter coordinates manually for now.
+            Enter the address and coordinates for the location.
           </p>
         </div>
       )}

@@ -18,6 +18,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Company name and tier are required.' }, { status: 400 });
     }
 
+    const validTiers = ['CASUAL', 'STARTER', 'GROWTH'];
+    if (!validTiers.includes(selectedTier)) {
+      return NextResponse.json({ error: 'Invalid tier. Must be CASUAL, STARTER, or GROWTH.' }, { status: 400 });
+    }
+
+    if (typeof companyName !== 'string' || companyName.trim().length < 2 || companyName.trim().length > 200) {
+      return NextResponse.json({ error: 'Company name must be between 2 and 200 characters.' }, { status: 400 });
+    }
+
     // Check if shipper profile already exists
     const existing = await prisma.shipper.findUnique({
       where: { userId: session.user.id },
@@ -30,8 +39,8 @@ export async function POST(request: Request) {
     await prisma.shipper.create({
       data: {
         userId: session.user.id,
-        companyName,
-        subscriptionTier: selectedTier === 'GROWTH' ? 'GROWTH' : 'STARTER',
+        companyName: companyName.trim(),
+        subscriptionTier: selectedTier as 'CASUAL' | 'STARTER' | 'GROWTH',
       },
     });
 

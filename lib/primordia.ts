@@ -4,7 +4,7 @@ import {
   mockFlagAnomaly,
 } from './primordia.mock';
 
-const PRIMORDIA_API_URL = process.env.PRIMORDIA_API_URL || 'mock';
+const PRIMORDIA_API_URL = process.env.PRIMORDIA_API_URL || '';
 const PRIMORDIA_API_KEY = process.env.PRIMORDIA_API_KEY || '';
 
 const isMock = PRIMORDIA_API_URL === 'mock';
