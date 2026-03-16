@@ -50,10 +50,17 @@ export async function PUT(request: Request) {
 
     const body = await request.json();
 
+    const companyName = body.companyName;
+    if (companyName !== undefined) {
+      if (typeof companyName !== 'string' || companyName.trim().length < 2 || companyName.trim().length > 200) {
+        return NextResponse.json({ error: 'Company name must be between 2 and 200 characters.' }, { status: 400 });
+      }
+    }
+
     await prisma.shipper.update({
       where: { id: shipper.id },
       data: {
-        companyName: body.companyName ?? shipper.companyName,
+        companyName: companyName ? companyName.trim() : shipper.companyName,
       },
     });
 

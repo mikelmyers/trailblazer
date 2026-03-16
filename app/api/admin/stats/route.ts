@@ -20,7 +20,7 @@ export async function GET() {
       driversOnline,
       activeJobs,
       jobsToday,
-      deliveredThisMonth,
+      revenueResult,
     ] = await Promise.all([
       prisma.driver.count(),
       prisma.driver.count({ where: { isAvailable: true } }),
@@ -34,16 +34,16 @@ export async function GET() {
       prisma.job.count({
         where: { createdAt: { gte: startOfDay } },
       }),
-      prisma.job.count({
+      prisma.job.aggregate({
         where: {
           status: 'DELIVERED',
           deliveredAt: { gte: startOfMonth },
         },
+        _sum: { priceCents: true },
       }),
     ]);
 
-    // Revenue estimate: deliveries this month * average job value
-    const revenueThisMonth = deliveredThisMonth * 45;
+    const revenueThisMonth = (revenueResult._sum.priceCents ?? 0) / 100;
 
     return NextResponse.json({
       totalDrivers,

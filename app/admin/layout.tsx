@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: GridIcon },
@@ -73,8 +73,18 @@ function UsersIcon({ className }: { className?: string }) {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/signout', { method: 'POST' });
+      router.push('/');
+    } catch {
+      window.location.href = '/';
+    }
+  };
 
   function isActive(href: string): boolean {
     if (href === '/admin') return pathname === '/admin';
@@ -200,6 +210,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="h-8 w-8 rounded-full bg-surface-dark flex items-center justify-center text-white text-[11px] font-bold">
               A
             </div>
+            <button
+              onClick={handleSignOut}
+              className="hidden sm:block text-[12px] text-text-secondary hover:text-text-primary transition"
+            >
+              Sign out
+            </button>
           </div>
         </header>
 

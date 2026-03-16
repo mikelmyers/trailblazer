@@ -57,7 +57,7 @@ function baseTemplate(content: string): string {
 }
 
 export async function sendVerificationEmail(email: string, token: string): Promise<void> {
-  const verifyUrl = `${APP_URL}/auth/verify-email?token=${token}`;
+  const verifyUrl = `${APP_URL}/api/auth/verify-email?token=${token}`;
 
   const content = `
     <h2 style="margin: 0 0 16px; font-size: 22px; font-weight: 600; color: #ffffff;">

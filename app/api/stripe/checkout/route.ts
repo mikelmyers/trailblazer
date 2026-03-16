@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { stripe, createCheckoutSession } from '@/lib/stripe';
+import { stripe, createCheckoutSession, isValidPriceId } from '@/lib/stripe';
 import { checkoutSchema } from '@/lib/validations/stripe';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -26,6 +26,11 @@ export async function POST(request: Request) {
     }
 
     const { priceId } = parsed.data;
+
+    if (!isValidPriceId(priceId)) {
+      return NextResponse.json({ error: 'Invalid price ID.' }, { status: 400 });
+    }
+
     let stripeCustomerId: string | null = null;
 
     if (session.user.role === 'DRIVER') {

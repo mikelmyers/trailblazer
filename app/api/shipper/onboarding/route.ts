@@ -18,7 +18,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Subscription tier is required.' }, { status: 400 });
     }
 
-    const tier = selectedTier === 'GROWTH' ? 'GROWTH' : 'STARTER';
+    const validTiers = ['CASUAL', 'STARTER', 'GROWTH'];
+    if (!validTiers.includes(selectedTier)) {
+      return NextResponse.json({ error: 'Invalid tier. Must be CASUAL, STARTER, or GROWTH.' }, { status: 400 });
+    }
+
+    if (companyName !== undefined && companyName !== null && companyName !== '') {
+      if (typeof companyName !== 'string' || companyName.trim().length < 2 || companyName.trim().length > 200) {
+        return NextResponse.json({ error: 'Company name must be between 2 and 200 characters.' }, { status: 400 });
+      }
+    }
 
     // Upsert shipper profile — signup creates a bare profile, onboarding fills it in
     const existing = await prisma.shipper.findUnique({
@@ -29,16 +38,16 @@ export async function POST(request: Request) {
       await prisma.shipper.update({
         where: { userId: session.user.id },
         data: {
-          ...(companyName && { companyName }),
-          subscriptionTier: tier,
+          ...(companyName && { companyName: companyName.trim() }),
+          subscriptionTier: selectedTier as 'CASUAL' | 'STARTER' | 'GROWTH',
         },
       });
     } else {
       await prisma.shipper.create({
         data: {
           userId: session.user.id,
-          companyName: companyName || null,
-          subscriptionTier: tier,
+          companyName: companyName ? companyName.trim() : null,
+          subscriptionTier: selectedTier as 'CASUAL' | 'STARTER' | 'GROWTH',
         },
       });
     }

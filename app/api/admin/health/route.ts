@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 
-const PRIMORDIA_API_URL = process.env.PRIMORDIA_API_URL || 'mock';
+const PRIMORDIA_API_URL = process.env.PRIMORDIA_API_URL || '';
 
 export async function GET() {
   try {
@@ -43,9 +43,9 @@ export async function GET() {
     } else {
       services.push({
         service: 'Terra API',
-        status: 'healthy',
-        latency: 1,
-        uptime: 'mock mode',
+        status: 'degraded',
+        latency: 0,
+        uptime: 'not configured',
       });
     }
 

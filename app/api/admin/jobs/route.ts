@@ -24,8 +24,20 @@ export async function GET(request: Request) {
     if (urgency) where.urgency = urgency;
     if (dateFrom || dateTo) {
       const createdAt: Record<string, Date> = {};
-      if (dateFrom) createdAt.gte = new Date(dateFrom);
-      if (dateTo) createdAt.lte = new Date(dateTo + 'T23:59:59.999Z');
+      if (dateFrom) {
+        const parsed = new Date(dateFrom);
+        if (isNaN(parsed.getTime())) {
+          return NextResponse.json({ error: 'Invalid dateFrom format.' }, { status: 400 });
+        }
+        createdAt.gte = parsed;
+      }
+      if (dateTo) {
+        const parsed = new Date(dateTo + 'T23:59:59.999Z');
+        if (isNaN(parsed.getTime())) {
+          return NextResponse.json({ error: 'Invalid dateTo format.' }, { status: 400 });
+        }
+        createdAt.lte = parsed;
+      }
       where.createdAt = createdAt;
     }
 

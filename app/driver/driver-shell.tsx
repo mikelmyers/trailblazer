@@ -63,8 +63,12 @@ const DriverShell: React.FC<DriverShellProps> = ({ userName, children }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleSignOut = async () => {
-    await fetch('/api/auth/signout', { method: 'POST' });
-    router.push('/auth/signin');
+    try {
+      await fetch('/api/auth/signout', { method: 'POST' });
+      router.push('/');
+    } catch {
+      window.location.href = '/';
+    }
   };
 
   return (
