@@ -22,7 +22,7 @@ enum ShipperTier: String, Codable, CaseIterable {
     }
 }
 
-struct Shipper: Codable, Identifiable {
+struct Shipper: Codable, Identifiable, Hashable {
     let id: String
     let userId: String
     let companyName: String
@@ -32,8 +32,8 @@ struct Shipper: Codable, Identifiable {
     let createdAt: Date?
 }
 
-struct JobShipper: Codable {
+struct JobShipper: Codable, Hashable {
     let id: String
     let companyName: String
-    let userId: String
+    let userId: String?
 }

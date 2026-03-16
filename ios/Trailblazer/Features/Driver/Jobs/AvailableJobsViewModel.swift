@@ -22,19 +22,23 @@ final class AvailableJobsViewModel {
             let response: AvailableJobsResponse = try await apiClient.request(.availableJobs)
             jobs = response.jobs
 
-            // Center map on jobs if available
-            if let first = jobs.first {
-                let lats = jobs.map(\.pickupLat)
-                let lngs = jobs.map(\.pickupLng)
-                let center = CLLocationCoordinate2D(
-                    latitude: (lats.min()! + lats.max()!) / 2,
-                    longitude: (lngs.min()! + lngs.max()!) / 2
-                )
-                let span = MKCoordinateSpan(
-                    latitudeDelta: max((lats.max()! - lats.min()!) * 1.5, 0.05),
-                    longitudeDelta: max((lngs.max()! - lngs.min()!) * 1.5, 0.05)
-                )
-                mapRegion = MKCoordinateRegion(center: center, span: span)
+            // Center map on jobs that have coordinates
+            let jobsWithCoords = jobs.filter { $0.pickupLat != nil && $0.pickupLng != nil }
+            if !jobsWithCoords.isEmpty {
+                let lats = jobsWithCoords.compactMap(\.pickupLat)
+                let lngs = jobsWithCoords.compactMap(\.pickupLng)
+                if let minLat = lats.min(), let maxLat = lats.max(),
+                   let minLng = lngs.min(), let maxLng = lngs.max() {
+                    let center = CLLocationCoordinate2D(
+                        latitude: (minLat + maxLat) / 2,
+                        longitude: (minLng + maxLng) / 2
+                    )
+                    let span = MKCoordinateSpan(
+                        latitudeDelta: max((maxLat - minLat) * 1.5, 0.05),
+                        longitudeDelta: max((maxLng - minLng) * 1.5, 0.05)
+                    )
+                    mapRegion = MKCoordinateRegion(center: center, span: span)
+                }
             }
         } catch let apiError as APIError {
             error = apiError.errorDescription

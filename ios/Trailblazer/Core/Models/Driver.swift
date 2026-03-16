@@ -40,7 +40,7 @@ enum DriverTier: String, Codable, CaseIterable {
     }
 }
 
-struct Driver: Codable, Identifiable {
+struct Driver: Codable, Identifiable, Hashable {
     let id: String
     let userId: String
     let vehicleType: VehicleType
@@ -58,13 +58,13 @@ struct Driver: Codable, Identifiable {
     let user: DriverUser?
 }
 
-struct DriverUser: Codable {
+struct DriverUser: Codable, Hashable {
     let name: String?
     let email: String?
     let image: String?
 }
 
-struct JobDriver: Codable {
+struct JobDriver: Codable, Hashable {
     let id: String
     let userId: String
     let vehicleType: VehicleType

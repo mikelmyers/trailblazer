@@ -12,7 +12,8 @@ actor CacheService {
     }
 
     private init() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         cacheDir = appSupport.appendingPathComponent("cache")
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }

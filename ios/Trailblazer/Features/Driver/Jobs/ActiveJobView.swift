@@ -13,8 +13,8 @@ struct ActiveJobView: View {
             VStack(spacing: 0) {
                 // Map
                 TrailblazerMapView(
-                    pickupCoordinate: CLLocationCoordinate2D(latitude: job.pickupLat, longitude: job.pickupLng),
-                    dropoffCoordinate: CLLocationCoordinate2D(latitude: job.dropoffLat, longitude: job.dropoffLng),
+                    pickupCoordinate: pickupCoord,
+                    dropoffCoordinate: dropoffCoord,
                     showsUserLocation: true
                 )
                 .frame(height: 280)
@@ -44,13 +44,13 @@ struct ActiveJobView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 16))
 
                         // Navigate Button
-                        let destination = job.status.stepIndex <= 2
-                            ? CLLocationCoordinate2D(latitude: job.pickupLat, longitude: job.pickupLng)
-                            : CLLocationCoordinate2D(latitude: job.dropoffLat, longitude: job.dropoffLng)
+                        let destination = job.status.stepIndex <= 2 ? pickupCoord : dropoffCoord
                         let destName = job.status.stepIndex <= 2 ? job.pickupAddress : job.dropoffAddress
 
                         Button {
-                            openInMaps(coordinate: destination, name: destName)
+                            if let destination {
+                                openInMaps(coordinate: destination, name: destName)
+                            }
                         } label: {
                             Label("Navigate", systemImage: "location.fill")
                                 .frame(maxWidth: .infinity)
@@ -115,6 +115,7 @@ struct ActiveJobView: View {
             }
             .navigationTitle("Active Delivery")
             .navigationBarTitleDisplayMode(.inline)
+            .onDisappear { viewModel.stopPolling() }
             .loadingOverlay(isPresented: viewModel.isUpdating)
             .confirmationDialog("Confirm Action", isPresented: $showAdvanceConfirmation) {
                 if let label = job.status.driverActionLabel {
@@ -136,8 +137,21 @@ struct ActiveJobView: View {
             }
         } else {
             ProgressView()
-                .task { await viewModel.load(jobId: jobId) }
+                .task {
+                    await viewModel.load(jobId: jobId)
+                    viewModel.startPolling(jobId: jobId)
+                }
         }
+    }
+
+    private var pickupCoord: CLLocationCoordinate2D? {
+        guard let lat = viewModel.job?.pickupLat, let lng = viewModel.job?.pickupLng else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+    }
+
+    private var dropoffCoord: CLLocationCoordinate2D? {
+        guard let lat = viewModel.job?.dropoffLat, let lng = viewModel.job?.dropoffLng else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
     }
 
     private func openInMaps(coordinate: CLLocationCoordinate2D, name: String) {

@@ -2,8 +2,8 @@ import Foundation
 
 @Observable
 final class ShipperProfileViewModel {
-    var shipper: Shipper?
     var companyName = ""
+    var contactEmail: String?
     var isLoading = false
     var isSaving = false
     var error: String?
@@ -18,8 +18,8 @@ final class ShipperProfileViewModel {
 
         do {
             let response: ShipperProfileResponse = try await apiClient.request(.shipperProfile)
-            shipper = response.shipper
-            companyName = response.shipper.companyName
+            companyName = response.companyName
+            contactEmail = response.contactEmail
         } catch let apiError as APIError {
             error = apiError.errorDescription
         } catch {
@@ -34,8 +34,7 @@ final class ShipperProfileViewModel {
         defer { isSaving = false }
 
         do {
-            let response: ShipperProfileResponse = try await apiClient.request(.updateShipperProfile(companyName: companyName))
-            shipper = response.shipper
+            let _: OkResponse = try await apiClient.request(.updateShipperProfile(companyName: companyName))
             successMessage = "Profile updated!"
         } catch let apiError as APIError {
             error = apiError.errorDescription

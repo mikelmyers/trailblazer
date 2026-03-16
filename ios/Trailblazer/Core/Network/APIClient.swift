@@ -18,7 +18,7 @@ actor APIClient {
     // MARK: - Public API
 
     func request<T: Decodable>(_ endpoint: APIEndpoint) async throws -> T {
-        var urlRequest = try RequestBuilder.buildWithEncodable(endpoint: endpoint, baseURL: baseURL)
+        var urlRequest = try RequestBuilder.build(endpoint: endpoint, baseURL: baseURL)
         AuthInterceptor.intercept(&urlRequest)
 
         let (data, response) = try await performWithRetry(urlRequest)
@@ -40,7 +40,7 @@ actor APIClient {
     }
 
     func requestVoid(_ endpoint: APIEndpoint) async throws {
-        var urlRequest = try RequestBuilder.buildWithEncodable(endpoint: endpoint, baseURL: baseURL)
+        var urlRequest = try RequestBuilder.build(endpoint: endpoint, baseURL: baseURL)
         AuthInterceptor.intercept(&urlRequest)
 
         let (data, response) = try await performWithRetry(urlRequest)

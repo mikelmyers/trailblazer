@@ -23,7 +23,8 @@ actor OfflineQueueService {
     }
 
     private init() {
-        let docs = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let docs = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
         fileURL = docs.appendingPathComponent("offline_queue.json")
         loadFromDisk()
     }

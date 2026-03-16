@@ -34,6 +34,7 @@ extension View {
         modifier(ShimmerModifier())
     }
 
+    @ViewBuilder
     func redactedShimmer(when condition: Bool) -> some View {
         if condition {
             self.redacted(reason: .placeholder).shimmer()

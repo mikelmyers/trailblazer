@@ -18,29 +18,6 @@ enum RequestBuilder {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
         if let body = endpoint.body {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        }
-
-        return request
-    }
-
-    static func buildWithEncodable(endpoint: APIEndpoint, baseURL: URL) throws -> URLRequest {
-        var components = URLComponents(url: baseURL.appendingPathComponent(endpoint.path), resolvingAgainstBaseURL: true)
-
-        if let queryItems = endpoint.queryItems {
-            components?.queryItems = queryItems
-        }
-
-        guard let url = components?.url else {
-            throw APIError.invalidURL
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = endpoint.method.rawValue
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        if let body = endpoint.body {
             request.httpBody = try ResponseDecoder.encoder.encode(AnyEncodable(body))
         }
 

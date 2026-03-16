@@ -21,9 +21,9 @@ final class DriverSubscriptionViewModel {
         defer { isLoading = false }
 
         do {
-            let response: DriverResponse = try await apiClient.request(.driverMe)
-            currentTier = response.driver.subscriptionTier
-            subscriptionStatus = response.driver.subscriptionStatus
+            let response: DriverMeResponse = try await apiClient.request(.driverMe)
+            currentTier = response.subscriptionTier
+            subscriptionStatus = response.subscriptionStatus
         } catch {
             self.error = error.localizedDescription
         }

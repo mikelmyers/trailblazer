@@ -20,10 +20,11 @@ final class DriverProfileViewModel {
         defer { isLoading = false }
 
         do {
-            let response: DriverResponse = try await apiClient.request(.driverMe)
-            driver = response.driver
-            selectedVehicleType = response.driver.vehicleType
-            serviceAreas = response.driver.serviceAreas
+            let response: DriverMeResponse = try await apiClient.request(.driverMe)
+            let d = response.toDriver()
+            driver = d
+            selectedVehicleType = d.vehicleType
+            serviceAreas = d.serviceAreas
         } catch let apiError as APIError {
             error = apiError.errorDescription
         } catch {
@@ -42,8 +43,8 @@ final class DriverProfileViewModel {
                 vehicleType: selectedVehicleType.rawValue,
                 serviceAreas: serviceAreas
             )
-            let response: DriverResponse = try await apiClient.request(.updateDriverProfile(request))
-            driver = response.driver
+            let response: DriverMeResponse = try await apiClient.request(.updateDriverProfile(request))
+            driver = response.toDriver()
             successMessage = "Profile updated!"
         } catch let apiError as APIError {
             error = apiError.errorDescription

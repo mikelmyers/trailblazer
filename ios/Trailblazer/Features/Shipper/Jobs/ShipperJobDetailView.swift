@@ -12,8 +12,8 @@ struct ShipperJobDetailView: View {
                 VStack(spacing: 20) {
                     // Map with driver location
                     TrailblazerMapView(
-                        pickupCoordinate: CLLocationCoordinate2D(latitude: job.pickupLat, longitude: job.pickupLng),
-                        dropoffCoordinate: CLLocationCoordinate2D(latitude: job.dropoffLat, longitude: job.dropoffLng)
+                        pickupCoordinate: job.pickupCoordinate,
+                        dropoffCoordinate: job.dropoffCoordinate
                     )
                     .frame(height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
@@ -75,8 +75,12 @@ struct ShipperJobDetailView: View {
 
                     // Details
                     VStack(spacing: 12) {
-                        DetailRow(label: "Package Size", value: job.packageSize.displayName)
-                        DetailRow(label: "Urgency", value: job.urgency.displayName)
+                        if let size = job.packageSize {
+                            DetailRow(label: "Package Size", value: size.displayName)
+                        }
+                        if let urgency = job.urgency {
+                            DetailRow(label: "Urgency", value: urgency.displayName)
+                        }
                         if let desc = job.description, !desc.isEmpty {
                             DetailRow(label: "Notes", value: desc)
                         }

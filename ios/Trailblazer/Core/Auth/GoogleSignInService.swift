@@ -4,6 +4,7 @@ import AuthenticationServices
 @Observable
 final class GoogleSignInService: NSObject, ASWebAuthenticationPresentationContextProviding {
     var isAuthenticating = false
+    private var authSession: ASWebAuthenticationSession?
 
     func signIn(baseURL: URL) async throws {
         isAuthenticating = true
@@ -12,22 +13,22 @@ final class GoogleSignInService: NSObject, ASWebAuthenticationPresentationContex
         let signInURL = baseURL.appendingPathComponent("/api/auth/signin/google")
         let callbackScheme = "trailblazer"
 
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withCheckedThrowingContinuation { [weak self] continuation in
             let session = ASWebAuthenticationSession(
                 url: signInURL,
                 callbackURLScheme: callbackScheme
-            ) { callbackURL, error in
+            ) { [weak self] callbackURL, error in
+                self?.authSession = nil
                 if let error {
                     continuation.resume(throwing: error)
                     return
                 }
-                // The callback URL will contain the session cookie
-                // The ASWebAuthenticationSession shares cookies with the app
                 continuation.resume()
             }
 
             session.presentationContextProvider = self
             session.prefersEphemeralWebBrowserSession = false
+            self?.authSession = session
 
             DispatchQueue.main.async {
                 session.start()
@@ -36,6 +37,9 @@ final class GoogleSignInService: NSObject, ASWebAuthenticationPresentationContex
     }
 
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        ASPresentationAnchor()
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first { $0.isKeyWindow } ?? ASPresentationAnchor()
     }
 }

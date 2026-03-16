@@ -114,18 +114,16 @@ enum APIEndpoint {
 
     var body: (any Encodable)? {
         switch self {
-        case .signIn(let email, let password, let csrfToken):
-            return ["email": email, "password": password, "csrfToken": csrfToken]
+        case .signIn:
+            return nil // Sign-in uses form-encoded body built in APIClient.signIn()
         case .signUp(let email, let password, let name, let role, let companyName):
-            var body: [String: String] = ["email": email, "password": password, "name": name, "role": role]
-            if let companyName { body["companyName"] = companyName }
-            return body
+            return SignUpBody(email: email, password: password, name: name, role: role, companyName: companyName)
         case .forgotPassword(let email):
-            return ["email": email]
+            return EmailBody(email: email)
         case .resetPassword(let token, let password):
-            return ["token": token, "password": password]
+            return ResetPasswordBody(token: token, password: password)
         case .resendVerification(let email):
-            return ["email": email]
+            return EmailBody(email: email)
         case .createJob(let request):
             return request
         case .updateJobStatus(_, let status):
@@ -135,15 +133,15 @@ enum APIEndpoint {
         case .updateDriverProfile(let request):
             return request
         case .updateLocation(let lat, let lng):
-            return ["currentLat": lat, "currentLng": lng]
+            return LocationBody(currentLat: lat, currentLng: lng)
         case .updateAvailability(let isAvailable):
-            return ["isAvailable": isAvailable]
+            return AvailabilityBody(isAvailable: isAvailable)
         case .updateShipperProfile(let companyName):
-            return ["companyName": companyName]
+            return CompanyNameBody(companyName: companyName)
         case .shipperOnboarding(let companyName, let selectedTier):
-            return ["companyName": companyName, "selectedTier": selectedTier]
+            return ShipperOnboardingBody(companyName: companyName, selectedTier: selectedTier)
         case .stripeCheckout(let priceId):
-            return ["priceId": priceId]
+            return PriceIdBody(priceId: priceId)
         default:
             return nil
         }
@@ -167,4 +165,45 @@ enum APIEndpoint {
             return nil
         }
     }
+}
+
+// MARK: - Request Body Types
+
+private struct SignUpBody: Encodable {
+    let email: String
+    let password: String
+    let name: String
+    let role: String
+    let companyName: String?
+}
+
+private struct EmailBody: Encodable {
+    let email: String
+}
+
+private struct ResetPasswordBody: Encodable {
+    let token: String
+    let password: String
+}
+
+private struct LocationBody: Encodable {
+    let currentLat: Double
+    let currentLng: Double
+}
+
+private struct AvailabilityBody: Encodable {
+    let isAvailable: Bool
+}
+
+private struct CompanyNameBody: Encodable {
+    let companyName: String
+}
+
+private struct ShipperOnboardingBody: Encodable {
+    let companyName: String
+    let selectedTier: String
+}
+
+private struct PriceIdBody: Encodable {
+    let priceId: String
 }

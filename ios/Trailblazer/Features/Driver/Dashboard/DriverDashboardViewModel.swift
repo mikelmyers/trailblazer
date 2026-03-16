@@ -22,17 +22,21 @@ final class DriverDashboardViewModel {
 
         do {
             async let statsReq: DriverStats = apiClient.request(.driverStats)
-            async let profileReq: DriverResponse = apiClient.request(.driverMe)
+            async let profileReq: DriverMeResponse = apiClient.request(.driverMe)
 
             let (s, p) = try await (statsReq, profileReq)
             stats = s
-            profile = p.driver
+            profile = p.toDriver()
 
-            // Check for active job
-            do {
-                let jobResponse: JobResponse = try await apiClient.request(.activeJob)
-                activeJob = jobResponse.job
-            } catch {
+            // Check for active job using the activeJobId from profile
+            if let activeJobId = p.activeJobId {
+                do {
+                    let jobResponse: JobResponse = try await apiClient.request(.getJob(id: activeJobId))
+                    activeJob = jobResponse.job
+                } catch {
+                    activeJob = nil
+                }
+            } else {
                 activeJob = nil
             }
         } catch let apiError as APIError {
@@ -47,13 +51,8 @@ final class DriverDashboardViewModel {
         defer { isTogglingAvailability = false }
 
         do {
-            let response: AvailabilityResponse = try await apiClient.request(.updateAvailability(isAvailable: newValue))
-            profile = profile.map { driver in
-                var d = driver
-                // Re-fetch profile to get updated availability
-                return d
-            }
-            await load() // Refresh all data
+            let _: AvailabilityResponse = try await apiClient.request(.updateAvailability(isAvailable: newValue))
+            await load()
             NotificationCenter.default.post(name: .driverAvailabilityChanged, object: nil)
         } catch let apiError as APIError {
             error = apiError.errorDescription

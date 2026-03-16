@@ -1,4 +1,5 @@
 import Foundation
+import CoreLocation
 
 enum JobStatus: String, Codable, CaseIterable {
     case POSTED
@@ -125,18 +126,18 @@ enum PackageSize: String, Codable, CaseIterable {
     }
 }
 
-struct Job: Codable, Identifiable {
+struct Job: Codable, Identifiable, Hashable {
     let id: String
     let status: JobStatus
-    let urgency: Urgency
+    let urgency: Urgency?
     let pickupAddress: String
-    let pickupLat: Double
-    let pickupLng: Double
+    let pickupLat: Double?
+    let pickupLng: Double?
     let dropoffAddress: String
-    let dropoffLat: Double
-    let dropoffLng: Double
+    let dropoffLat: Double?
+    let dropoffLng: Double?
     let description: String?
-    let packageSize: PackageSize
+    let packageSize: PackageSize?
     let priceCents: Int?
     let suggestedPriceCents: Int?
     let platformFeeCents: Int?
@@ -147,6 +148,24 @@ struct Job: Codable, Identifiable {
     let deliveredAt: Date?
     let shipper: JobShipper?
     let driver: JobDriver?
+
+    var pickupCoordinate: CLLocationCoordinate2D? {
+        guard let lat = pickupLat, let lng = pickupLng else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+    }
+
+    var dropoffCoordinate: CLLocationCoordinate2D? {
+        guard let lat = dropoffLat, let lng = dropoffLng else { return nil }
+        return CLLocationCoordinate2D(latitude: lat, longitude: lng)
+    }
+
+    static func == (lhs: Job, rhs: Job) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
 }
 
 struct JobResponse: Codable {
@@ -158,7 +177,7 @@ struct JobListResponse: Codable {
     let pagination: Pagination?
 }
 
-struct Pagination: Codable {
+struct Pagination: Codable, Hashable {
     let page: Int?
     let limit: Int?
     let total: Int?

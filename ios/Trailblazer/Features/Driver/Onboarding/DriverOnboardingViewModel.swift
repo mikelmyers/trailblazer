@@ -25,7 +25,7 @@ final class DriverOnboardingViewModel {
                 vehicleType: selectedVehicleType.rawValue,
                 serviceAreas: serviceAreas
             )
-            let _: DriverResponse = try await apiClient.request(.updateDriverProfile(request))
+            let _: DriverMeResponse = try await apiClient.request(.updateDriverProfile(request))
             return true
         } catch let apiError as APIError {
             error = apiError.errorDescription

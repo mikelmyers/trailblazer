@@ -33,8 +33,8 @@ struct TrailblazerMapView: View {
                 }
             }
 
-            ForEach(jobAnnotations) { job in
-                Annotation(job.pickupAddress, coordinate: CLLocationCoordinate2D(latitude: job.pickupLat, longitude: job.pickupLng)) {
+            ForEach(jobAnnotations.filter { $0.pickupLat != nil && $0.pickupLng != nil }) { job in
+                Annotation(job.pickupAddress, coordinate: CLLocationCoordinate2D(latitude: job.pickupLat!, longitude: job.pickupLng!)) {
                     JobAnnotationView(type: .pickup)
                 }
             }

@@ -1,6 +1,6 @@
 import Foundation
 
-struct Payment: Codable, Identifiable {
+struct Payment: Codable, Identifiable, Hashable {
     let id: String
     let jobId: String
     let stripePaymentIntentId: String

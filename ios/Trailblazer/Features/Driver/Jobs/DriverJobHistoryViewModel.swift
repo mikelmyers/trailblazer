@@ -21,8 +21,8 @@ final class DriverJobHistoryViewModel {
         var statusParam: String? {
             switch self {
             case .all: return nil
-            case .active: return "active"
-            case .completed: return "DELIVERED"
+            case .active: return "ACTIVE"
+            case .completed: return "COMPLETED"
             case .cancelled: return "CANCELLED"
             }
         }

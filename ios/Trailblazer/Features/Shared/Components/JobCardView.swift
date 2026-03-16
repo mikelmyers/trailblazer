@@ -35,15 +35,19 @@ struct JobCardView: View {
             }
 
             HStack {
-                Label(job.packageSize.displayName, systemImage: "shippingbox")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if let size = job.packageSize {
+                    Label(size.displayName, systemImage: "shippingbox")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 
-                Label(job.urgency.displayName, systemImage: "bolt.fill")
-                    .font(.caption)
-                    .foregroundStyle(Color.forUrgency(job.urgency))
+                if let urgency = job.urgency {
+                    Label(urgency.displayName, systemImage: "bolt.fill")
+                        .font(.caption)
+                        .foregroundStyle(Color.forUrgency(urgency))
+                }
 
                 Spacer()
 

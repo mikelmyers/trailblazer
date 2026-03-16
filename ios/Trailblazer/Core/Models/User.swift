@@ -6,7 +6,7 @@ enum Role: String, Codable, CaseIterable {
     case ADMIN
 }
 
-struct User: Codable, Identifiable {
+struct User: Codable, Identifiable, Hashable {
     let id: String
     let email: String
     let name: String?
@@ -16,7 +16,7 @@ struct User: Codable, Identifiable {
     let emailVerified: Date?
 }
 
-struct SessionUser: Codable {
+struct SessionUser: Codable, Hashable {
     let id: String
     let email: String
     let name: String?

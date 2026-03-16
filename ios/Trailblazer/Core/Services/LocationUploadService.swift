@@ -11,13 +11,10 @@ actor LocationUploadService {
     func uploadIfNeeded(location: CLLocation) async {
         let now = Date()
 
-        // Check time throttle
-        if let lastTime = lastUploadTime, now.timeIntervalSince(lastTime) < minimumInterval {
-            // Check distance override
-            if let lastLocation = lastUploadedLocation,
-               location.distance(from: lastLocation) < minimumDistance {
-                return
-            }
+        // Skip if both thresholds are unmet: time < 30s AND distance < 100m
+        if let lastTime = lastUploadTime, now.timeIntervalSince(lastTime) < minimumInterval,
+           let lastLocation = lastUploadedLocation, location.distance(from: lastLocation) < minimumDistance {
+            return
         }
 
         do {

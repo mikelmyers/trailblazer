@@ -7,48 +7,39 @@ struct ShipperProfileView: View {
 
     var body: some View {
         List {
-            if let shipper = viewModel.shipper {
-                Section {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(shipper.companyName)
-                                .font(.title3.bold())
-                            Text(authManager.currentUser?.email ?? "")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        SubscriptionBadgeView(tier: shipper.subscriptionTier.displayName)
+            Section {
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(viewModel.companyName.isEmpty ? "Company" : viewModel.companyName)
+                            .font(.title3.bold())
+                        Text(viewModel.contactEmail ?? authManager.currentUser?.email ?? "")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
+                    Spacer()
                 }
+            }
 
-                Section("Company") {
-                    if isEditing {
-                        TextField("Company Name", text: $viewModel.companyName)
-                    } else {
-                        LabeledContent("Company Name", value: shipper.companyName)
-                    }
-                    LabeledContent("Email", value: authManager.currentUser?.email ?? "-")
+            Section("Company") {
+                if isEditing {
+                    TextField("Company Name", text: $viewModel.companyName)
+                } else {
+                    LabeledContent("Company Name", value: viewModel.companyName)
                 }
+                LabeledContent("Email", value: viewModel.contactEmail ?? authManager.currentUser?.email ?? "-")
+            }
 
-                Section("Subscription") {
-                    NavigationLink {
-                        ShipperSubscriptionView()
-                    } label: {
-                        HStack {
-                            Text("Plan")
-                            Spacer()
-                            SubscriptionBadgeView(tier: shipper.subscriptionTier.displayName)
-                        }
-                    }
-
-                    LabeledContent("Jobs This Month", value: "\(shipper.monthlyJobCount)")
+            Section("Subscription") {
+                NavigationLink {
+                    ShipperSubscriptionView()
+                } label: {
+                    Text("Manage Subscription")
                 }
+            }
 
-                Section {
-                    NavigationLink("Settings") {
-                        SettingsView()
-                    }
+            Section {
+                NavigationLink("Settings") {
+                    SettingsView()
                 }
             }
 
@@ -78,6 +69,7 @@ struct ShipperProfileView: View {
                 .disabled(viewModel.isSaving)
             }
         }
+        .redactedShimmer(when: viewModel.isLoading && viewModel.companyName.isEmpty)
         .refreshable { await viewModel.load() }
         .task { await viewModel.load() }
     }
