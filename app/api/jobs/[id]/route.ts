@@ -126,6 +126,22 @@ export async function PATCH(
       );
     }
 
+    // Refund authorization must be checked BEFORE entering the transaction
+    if (newStatus === 'REFUNDED' && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Only admins can issue refunds.' },
+        { status: 403 }
+      );
+    }
+
+    // Block delivery completion if payment was expected but not authorized
+    if (newStatus === 'DELIVERED' && job.priceCents > 0 && !job.paymentIntentId) {
+      return NextResponse.json(
+        { error: 'Cannot complete delivery: no payment authorization on file.' },
+        { status: 402 }
+      );
+    }
+
     const updateData: Record<string, unknown> = { status: newStatus };
 
     if (newStatus === 'PICKED_UP') {
@@ -226,9 +242,6 @@ export async function PATCH(
 
       // Refund payment after delivery (admin-only dispute resolution)
       if (newStatus === 'REFUNDED' && job.paymentIntentId && (job.paymentStatus === 'captured' || job.paymentStatus === 'transferred')) {
-        if (!isAdmin) {
-          throw new Error('Only admins can issue refunds.');
-        }
         // Reverse driver transfer first if already transferred
         if (job.paymentStatus === 'transferred' && job.transferId) {
           await reverseTransfer(job.transferId);

@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { randomUUID } from 'crypto';
 
 let _stripe: Stripe | null = null;
 export function getStripe() {
@@ -25,6 +26,11 @@ export const PRICE_IDS = {
   SHIPPER_GROWTH: process.env.STRIPE_SHIPPER_GROWTH_PRICE_ID!,
 };
 
+/** Returns true if the given priceId matches a known subscription tier */
+export function isValidPriceId(priceId: string): boolean {
+  return Object.values(PRICE_IDS).some((id) => id && id === priceId);
+}
+
 export async function createCheckoutSession(
   customerId: string,
   priceId: string,
@@ -40,7 +46,7 @@ export async function createCheckoutSession(
       success_url: successUrl,
       cancel_url: cancelUrl,
     },
-    { idempotencyKey: `checkout_${customerId}_${Date.now()}` }
+    { idempotencyKey: `checkout_${customerId}_${randomUUID()}` }
   );
 }
 
