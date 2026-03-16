@@ -23,10 +23,7 @@ export const signUpSchema = z.object({
     error: 'Role must be DRIVER or SHIPPER',
   }),
   companyName: z.string().min(2, 'Company name must be at least 2 characters').max(200).optional(),
-}).refine(
-  (data) => data.role !== 'SHIPPER' || (data.companyName && data.companyName.trim().length >= 2),
-  { message: 'Company name is required for shippers', path: ['companyName'] }
-);
+});
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),

@@ -18,6 +18,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +42,12 @@ export default function SignUpPage() {
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role }),
+        body: JSON.stringify({ name, email, password, role, ...(role === 'SHIPPER' && companyName.trim() && { companyName: companyName.trim() }) }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.message ?? 'Something went wrong. Please try again.');
+        setError(data.error ?? 'Something went wrong. Please try again.');
         return;
       }
 
@@ -193,6 +194,22 @@ export default function SignUpPage() {
             className="block w-full rounded-md border border-border bg-white px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10 transition"
           />
         </div>
+
+        {role === 'SHIPPER' && (
+          <div>
+            <label htmlFor="company-name" className="block text-sm font-medium text-text-primary mb-1.5">
+              Company name <span className="font-normal text-text-muted">(optional)</span>
+            </label>
+            <input
+              id="company-name"
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="Acme Logistics"
+              className="block w-full rounded-md border border-border bg-white px-3.5 py-2.5 text-sm text-text-primary placeholder:text-text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/10 transition"
+            />
+          </div>
+        )}
 
         <div>
           <label htmlFor="signup-password" className="block text-sm font-medium text-text-primary mb-1.5">

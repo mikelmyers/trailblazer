@@ -14,26 +14,34 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { companyName, selectedTier } = body;
 
-    if (!companyName || !selectedTier) {
-      return NextResponse.json({ error: 'Company name and tier are required.' }, { status: 400 });
+    if (!selectedTier) {
+      return NextResponse.json({ error: 'Subscription tier is required.' }, { status: 400 });
     }
 
-    // Check if shipper profile already exists
+    const tier = selectedTier === 'GROWTH' ? 'GROWTH' : 'STARTER';
+
+    // Upsert shipper profile — signup creates a bare profile, onboarding fills it in
     const existing = await prisma.shipper.findUnique({
       where: { userId: session.user.id },
     });
 
     if (existing) {
-      return NextResponse.json({ error: 'Shipper profile already exists.' }, { status: 409 });
+      await prisma.shipper.update({
+        where: { userId: session.user.id },
+        data: {
+          ...(companyName && { companyName }),
+          subscriptionTier: tier,
+        },
+      });
+    } else {
+      await prisma.shipper.create({
+        data: {
+          userId: session.user.id,
+          companyName: companyName || null,
+          subscriptionTier: tier,
+        },
+      });
     }
-
-    await prisma.shipper.create({
-      data: {
-        userId: session.user.id,
-        companyName,
-        subscriptionTier: selectedTier === 'GROWTH' ? 'GROWTH' : 'STARTER',
-      },
-    });
 
     // Update user role to SHIPPER if not already
     await prisma.user.update({
